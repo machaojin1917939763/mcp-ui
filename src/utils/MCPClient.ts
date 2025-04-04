@@ -348,4 +348,91 @@ export class MCPClient {
   addMessageToHistory(message: Message): void {
     this.messageHistory.push(message);
   }
+
+  /**
+   * 处理用户查询，使用LLM和可用工具，支持流式响应
+   * @param query 用户查询
+   * @param onChunk 处理响应块的回调函数
+   */
+  async processStreamQuery(query: string, onChunk: (chunk: string) => void): Promise<string> {
+    // 添加用户消息到历史
+    this.messageHistory.push({
+      role: 'user',
+      content: query
+    });
+    
+    try {
+      // 如果LLM服务已初始化，直接使用
+      if (this.llmService) {
+        // 使用流式API
+        const response = await this.llmService.sendStreamMessage(
+          this.messageHistory,
+          onChunk,
+          this.availableTools
+        );
+        
+        try {
+          // 检查是否为工具调用的JSON响应
+          const responseData = JSON.parse(response);
+          
+          if (responseData.type === 'tool_calls' && responseData.tool_calls?.length > 0) {
+            // 处理工具调用
+            let finalResponse = '';
+            
+            for (const call of responseData.tool_calls) {
+              try {
+                // 通知正在调用工具
+                onChunk(`\n正在调用工具 ${call.name}...\n`);
+                
+                const toolResult = await this.callTool(call.name, call.arguments);
+                const toolResponse = `使用工具 ${call.name} 的结果：\n${JSON.stringify(toolResult.result, null, 2)}\n\n`;
+                
+                finalResponse += toolResponse;
+                onChunk(toolResponse);
+              } catch (error) {
+                const errorMsg = `调用工具 ${call.name} 失败：${(error as Error).message}\n\n`;
+                finalResponse += errorMsg;
+                onChunk(errorMsg);
+              }
+            }
+            
+            // 将工具调用结果添加到消息历史
+            this.messageHistory.push({
+              role: 'assistant',
+              content: finalResponse
+            });
+            
+            return finalResponse;
+          }
+        } catch (e) {
+          // 不是JSON，说明是普通文本回复
+        }
+        
+        // 将助手回复添加到消息历史
+        this.messageHistory.push({
+          role: 'assistant',
+          content: response
+        });
+        
+        return response;
+      } else {
+        // 暂不支持服务端的流式响应，使用普通响应代替
+        const responseText = await this.processQuery(query);
+        onChunk(responseText);
+        return responseText;
+      }
+    } catch (error) {
+      console.error('处理查询失败:', error);
+      const errorMessage = '处理查询时出错: ' + (error as Error).message;
+      
+      // 将错误消息添加到历史
+      this.messageHistory.push({
+        role: 'assistant',
+        content: errorMessage
+      });
+      
+      onChunk(errorMessage);
+      return errorMessage;
+    }
+  }
 } 

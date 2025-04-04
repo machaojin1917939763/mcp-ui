@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { onMounted, watch, onUnmounted } from 'vue';
+import { onMounted, watch, onUnmounted, computed } from 'vue';
 import { 
   useChat, 
   useChatHistory, 
   useModelSettings, 
   useUIState,
-  type ModelInfo 
+  type ModelInfo,
+  type ChatMessage
 } from '../composables';
 
 // 使用组合式API
@@ -77,8 +78,17 @@ watch(showHistoryPanel, (value) => {
   chatShowHistoryPanel.value = value;
 });
 
-// 定义代理函数，传递所需参数
-const sendMessage = () => chatSendMessage(createNewChat, currentChatId.value, chatHistoryList.value, saveCurrentChat);
+// 定义代理发送消息函数，添加滚动到底部的功能
+const sendMessage = () => {
+  chatSendMessage(createNewChat, currentChatId.value, chatHistoryList.value, saveCurrentChat);
+  // 添加一个短暂延迟后滚动到底部，确保DOM更新完成
+  setTimeout(() => {
+    const chatMessagesElement = document.querySelector('.chat-messages');
+    if (chatMessagesElement) {
+      chatMessagesElement.scrollTop = chatMessagesElement.scrollHeight;
+    }
+  }, 50);
+};
 const clearChat = () => chatClearChat(currentChatId.value, chatHistoryList.value);
 const loadChat = (chatId: string) => chatLoadChat(chatId, messages.value, mcpClient);
 const deleteChat = (chatId: string, event?: Event) => chatDeleteChat(chatId, messages.value, mcpClient, event);
@@ -183,6 +193,41 @@ const toggleModelDropdown = () => {
     availableModels: availableModels.value,
   });
 };
+
+// 计算属性：处理消息分组，确保用户消息在上，AI回复在下，并按时间倒序排列
+interface MessageGroup {
+  user?: ChatMessage;
+  assistant?: ChatMessage;
+}
+
+const messageGroups = computed<MessageGroup[]>(() => {
+  const groups: MessageGroup[] = [];
+  
+  // 首先将消息按对话对分组
+  for (let i = 0; i < messages.value.length; i += 2) {
+    const group: MessageGroup = {};
+    
+    // 用户消息
+    const userMsg = messages.value[i];
+    if (userMsg && userMsg.role === 'user') {
+      group.user = userMsg;
+    }
+    
+    // AI消息（如果存在）
+    const aiMsg = i + 1 < messages.value.length ? messages.value[i + 1] : null;
+    if (aiMsg && aiMsg.role === 'assistant') {
+      group.assistant = aiMsg;
+    }
+    
+    // 添加到分组列表
+    if (Object.keys(group).length > 0) {
+      groups.push(group);
+    }
+  }
+  
+  // 不再反转分组数组，保持时间正序
+  return groups;
+});
 </script>
 
 <template>
@@ -201,7 +246,37 @@ const toggleModelDropdown = () => {
     
     <div class="chat-header">
       <div class="header-title">
-        <h2>MCP 聊天</h2>
+        <h2>
+          <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="header-icon">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+          </svg>
+          MCP 智能对话
+        </h2>
+      </div>
+      <div class="model-info">
+        <span class="provider-badge" :class="providerId">
+          <svg v-if="providerId === 'openai'" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+          </svg>
+          <svg v-else-if="providerId === 'anthropic'" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"></circle>
+            <path d="M12 16v-4"></path>
+            <path d="M12 8h.01"></path>
+          </svg>
+          <svg v-else-if="providerId === 'deepseek'" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="18" cy="18" r="3"></circle>
+            <circle cx="6" cy="6" r="3"></circle>
+            <path d="M13 6h3a2 2 0 0 1 2 2v7"></path>
+            <path d="M11 18H8a2 2 0 0 1-2-2V9"></path>
+          </svg>
+          <svg v-else xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+            <path d="M8 21h8"></path>
+            <path d="M12 17v4"></path>
+          </svg>
+          {{ currentProvider?.name || '自定义' }}
+        </span>
+        <span class="model-badge">{{ providerId === 'custom' ? customModelId : modelId }}</span>
       </div>
       <div class="header-controls">
         <button class="icon-button clear-button" @click="clearChat" title="清除聊天记录">
@@ -216,10 +291,6 @@ const toggleModelDropdown = () => {
             <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
           </svg>
         </button>
-      </div>
-      <div class="model-info">
-        <span class="provider-badge" :class="providerId">{{ currentProvider?.name || '自定义' }}</span>
-        <span class="model-badge">{{ providerId === 'custom' ? customModelId : modelId }}</span>
       </div>
     </div>
     
@@ -375,22 +446,21 @@ const toggleModelDropdown = () => {
     <div class="chat-messages">
       <div v-if="messages.length === 0" class="empty-chat">
         <div class="empty-chat-content">
-          <h3>欢迎使用MCP聊天</h3>
-          <p v-if="!apiKey">
+          <div class="welcome-header">
+            <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="welcome-icon">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+            </svg>
+            <h3>欢迎使用 MCP 智能对话</h3>
+          </div>
+          
+          <div v-if="!apiKey" class="api-key-warning">
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="warning-icon">
               <circle cx="12" cy="12" r="10"></circle>
               <line x1="12" y1="8" x2="12" y2="12"></line>
               <line x1="12" y1="16" x2="12.01" y2="16"></line>
             </svg>
-            需要配置API密钥才能开始对话
-          </p>
-          <p v-else>
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="chat-icon">
-              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
-            </svg>
-            开始新的对话
-          </p>
-          <div class="hint" v-if="!apiKey">
+            <p>需要配置API密钥才能开始对话</p>
+            
             <button @click="toggleSettings" class="hint-button">
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <circle cx="12" cy="12" r="3"></circle>
@@ -399,48 +469,94 @@ const toggleModelDropdown = () => {
               打开设置配置API密钥
             </button>
           </div>
-          <div class="hint" v-else>
-            <p>你可以尝试这些问题：</p>
+          
+          <div v-else class="suggestions-container">
+            <div class="provider-info">
+              <svg v-if="providerId === 'openai'" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+              </svg>
+              <svg v-else-if="providerId === 'anthropic'" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"></circle>
+                <path d="M12 16v-4"></path>
+                <path d="M12 8h.01"></path>
+              </svg>
+              <svg v-else-if="providerId === 'deepseek'" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="18" cy="18" r="3"></circle>
+                <circle cx="6" cy="6" r="3"></circle>
+                <path d="M13 6h3a2 2 0 0 1 2 2v7"></path>
+                <path d="M11 18H8a2 2 0 0 1-2-2V9"></path>
+              </svg>
+              <svg v-else xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+                <path d="M8 21h8"></path>
+                <path d="M12 17v4"></path>
+              </svg>
+              <span>{{ currentProvider?.name || '自定义' }} / {{ providerId === 'custom' ? customModelId : modelId }}</span>
+            </div>
+            
+            <p class="suggestion-title">你可以尝试这些问题：</p>
             <ul class="example-questions">
-              <li @click="newMessage = '查询北京的天气'; sendMessage()">查询北京的天气</li>
-              <li @click="newMessage = '获取最新的科技新闻'; sendMessage()">获取最新的科技新闻</li>
-              <li @click="newMessage = '帮我解释什么是大模型'; sendMessage()">帮我解释什么是大模型</li>
+              <li @click="newMessage = '查询北京的天气'; sendMessage()">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3"></path>
+                </svg>
+                查询北京的天气
+              </li>
+              <li @click="newMessage = '获取最新的科技新闻'; sendMessage()">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                  <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+                </svg>
+                获取最新的科技新闻
+              </li>
+              <li @click="newMessage = '帮我解释什么是大模型'; sendMessage()">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
+                  <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                </svg>
+                帮我解释什么是大模型
+              </li>
             </ul>
           </div>
         </div>
       </div>
       
       <div v-else>
-        <div v-for="(message, index) in messages" :key="index" :class="['message', message.role]">
-          <div class="message-avatar">
-            <svg v-if="message.role === 'user'" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-              <circle cx="12" cy="7" r="4"></circle>
-            </svg>
-            <svg v-else xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="12" cy="12" r="10"></circle>
-              <path d="M12 16v-4"></path>
-              <path d="M12 8h.01"></path>
-            </svg>
+        <!-- 使用消息分组替代直接反转的消息列表 -->
+        <div v-for="(group, groupIndex) in messageGroups" :key="`group-${groupIndex}`" class="message-group">
+          <!-- 用户消息始终在上面 -->
+          <div v-if="group.user" :class="['message', 'user']">
+            <div class="message-avatar">
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                <circle cx="12" cy="7" r="4"></circle>
+              </svg>
+            </div>
+            <div class="message-content">
+              <div v-html="formatMessage(group.user.content)"></div>
+              <div class="message-time">{{ new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) }}</div>
+            </div>
           </div>
-          <div class="message-content">
-            <div v-html="formatMessage(message.content)"></div>
-            <div class="message-time">{{ new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) }}</div>
-          </div>
-        </div>
-        <div v-if="isLoading" class="message assistant typing">
-          <div class="message-avatar">
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="12" cy="12" r="10"></circle>
-              <path d="M12 16v-4"></path>
-              <path d="M12 8h.01"></path>
-            </svg>
-          </div>
-          <div class="message-content">
-            <div class="typing-indicator">
-              <span></span>
-              <span></span>
-              <span></span>
+          
+          <!-- AI消息始终在下面，且有足够的间距 -->
+          <div v-if="group.assistant" :class="['message', 'assistant']">
+            <div class="message-avatar">
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"></circle>
+                <path d="M12 16v-4"></path>
+                <path d="M12 8h.01"></path>
+              </svg>
+            </div>
+            <div class="message-content">
+              <div v-html="formatMessage(group.assistant.content)"></div>
+              <!-- 未完成消息的生成中指示器 -->
+              <div v-if="group.assistant.isComplete === false" class="generating-indicator">
+                <span></span>
+                <span></span>
+                <span></span>
+              </div>
+              <div class="message-time">{{ new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) }}</div>
             </div>
           </div>
         </div>

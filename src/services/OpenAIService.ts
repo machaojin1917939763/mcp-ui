@@ -131,4 +131,121 @@ export class LLMService {
       throw new Error('调用API出错: ' + (error as Error).message);
     }
   }
+  
+  /**
+   * 发送消息到LLM服务并获取流式回复
+   * @param messages 消息历史
+   * @param tools 可用工具列表
+   * @param onChunk 接收数据块的回调函数
+   */
+  async sendStreamMessage(
+    messages: Array<{role: 'user' | 'assistant' | 'system', content: string}>,
+    onChunk: (chunk: string) => void,
+    tools?: Array<{name: string, description: string, inputSchema: any}>
+  ): Promise<string> {
+    try {
+      // 准备工具定义
+      const formattedTools = tools?.map(tool => ({
+        type: 'function' as const,
+        function: {
+          name: tool.name,
+          description: tool.description,
+          parameters: tool.inputSchema || {
+            type: 'object',
+            properties: {},
+            required: []
+          }
+        }
+      }));
+      
+      // 调用Chat Completions API，启用流式响应
+      const stream = await this.client.chat.completions.create({
+        model: this.model,
+        messages,
+        tools: formattedTools,
+        temperature: 0.7,
+        max_tokens: 1000,
+        stream: true,
+      });
+      
+      let fullResponse = '';
+      let toolCallsData: any[] = [];
+      let isToolCall = false;
+      
+      // 处理流式响应
+      for await (const chunk of stream) {
+        // 获取当前块的内容
+        const content = chunk.choices[0]?.delta?.content || '';
+        const toolCalls = chunk.choices[0]?.delta?.tool_calls || [];
+        
+        // 如果有工具调用
+        if (toolCalls.length > 0) {
+          isToolCall = true;
+          
+          // 将工具调用数据添加到集合中
+          toolCalls.forEach(toolCall => {
+            if (!toolCallsData.some(t => t.index === toolCall.index)) {
+              toolCallsData.push({
+                index: toolCall.index,
+                id: toolCall.id,
+                type: toolCall.type,
+                function: {
+                  name: toolCall.function?.name || '',
+                  arguments: toolCall.function?.arguments || ''
+                }
+              });
+            } else {
+              // 更新现有工具调用的参数
+              const existingTool = toolCallsData.find(t => t.index === toolCall.index);
+              if (existingTool && toolCall.function?.arguments) {
+                existingTool.function.arguments += toolCall.function.arguments;
+              }
+            }
+          });
+        }
+        
+        // 如果有文本内容，添加到完整响应
+        if (content) {
+          fullResponse += content;
+          onChunk(content);
+        }
+      }
+      
+      // 如果是工具调用，返回工具调用数据的JSON
+      if (isToolCall) {
+        // 格式化工具调用数据
+        const formattedToolCalls = toolCallsData.map(call => {
+          try {
+            // 尝试解析JSON参数
+            return {
+              name: call.function.name,
+              arguments: JSON.parse(call.function.arguments)
+            };
+          } catch (e) {
+            // 如果解析失败，返回原始字符串
+            return {
+              name: call.function.name,
+              arguments: call.function.arguments
+            };
+          }
+        });
+        
+        const toolCallResponse = JSON.stringify({
+          type: 'tool_calls',
+          tool_calls: formattedToolCalls
+        });
+        
+        // 将工具调用响应传递给回调
+        onChunk(toolCallResponse);
+        return toolCallResponse;
+      }
+      
+      return fullResponse;
+    } catch (error) {
+      console.error('调用流式API出错:', error);
+      const errorMessage = '调用API出错: ' + (error as Error).message;
+      onChunk(errorMessage);
+      throw new Error(errorMessage);
+    }
+  }
 } 

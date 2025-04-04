@@ -20,6 +20,12 @@
   border-bottom: 1px solid #eaeef2;
 }
 
+.header-icon {
+  margin-right: 8px;
+  color: #3498db;
+  vertical-align: middle;
+}
+
 .header-title h2 {
   margin: 0;
   font-size: 1.2rem;
@@ -28,6 +34,8 @@
   background: linear-gradient(90deg, #1064a3, #3498db);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
+  display: flex;
+  align-items: center;
 }
 
 .header-controls {
@@ -70,10 +78,14 @@
 .provider-badge,
 .model-badge {
   font-size: 0.75rem;
-  padding: 2px 8px;
-  border-radius: 4px;
+  padding: 4px 10px;
+  border-radius: 6px;
   background-color: #f0f0f0;
   color: #555;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
 .provider-badge.openai {
@@ -89,6 +101,15 @@
 .provider-badge.deepseek {
   background-color: #e7eef7;
   color: #1064a3;
+}
+
+/* 消息组样式 */
+.message-group {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 20px;
+  width: 100%;
 }
 
 /* 聊天消息区域 */
@@ -122,16 +143,23 @@
   display: flex;
   gap: 12px;
   max-width: 85%;
-  animation: fade-in 0.3s ease;
+  animation: fade-in-top 0.3s ease;
+  width: fit-content;
 }
 
-@keyframes fade-in {
-  from { opacity: 0; transform: translateY(10px); }
+@keyframes fade-in-top {
+  from { opacity: 0; transform: translateY(-10px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
 .message.user {
   align-self: flex-end;
+  margin-left: auto;
+}
+
+.message.assistant {
+  align-self: flex-start;
+  margin-right: auto;
 }
 
 .message-avatar {
@@ -207,6 +235,40 @@
 @keyframes typing {
   0%, 100% { transform: translateY(0); }
   50% { transform: translateY(-5px); }
+}
+
+/* 生成中指示器 */
+.generating-indicator {
+  display: flex;
+  gap: 4px;
+  margin-top: 8px;
+  margin-bottom: 4px;
+}
+
+.generating-indicator span {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: #3498db;
+  opacity: 0.6;
+  animation: pulse 1s infinite ease-in-out;
+}
+
+.generating-indicator span:nth-child(1) {
+  animation-delay: 0s;
+}
+
+.generating-indicator span:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.generating-indicator span:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes pulse {
+  0%, 100% { transform: scale(1); opacity: 0.6; }
+  50% { transform: scale(1.2); opacity: 1; }
 }
 
 /* 空聊天状态 */
@@ -965,4 +1027,90 @@ div[v-else] .model-id {
 
 .assistant .message-time {
   text-align: right;
+}
+
+/* 欢迎页面样式 */
+.welcome-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 25px;
+}
+
+.welcome-icon {
+  color: #3498db;
+  margin-bottom: 15px;
+}
+
+.api-key-warning {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 20px;
+  background-color: #fff8e1;
+  border-radius: 12px;
+  margin-bottom: 20px;
+  border: 1px solid #ffe0b2;
+}
+
+.api-key-warning p {
+  margin: 10px 0 15px;
+  color: #f57c00;
+  font-weight: 500;
+}
+
+.api-key-warning .warning-icon {
+  color: #f57c00;
+}
+
+.suggestions-container {
+  margin-top: 25px;
+}
+
+.provider-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 15px;
+  background-color: #f0f7ff;
+  border-radius: 10px;
+  margin-bottom: 20px;
+  border: 1px solid #d1e9ff;
+}
+
+.provider-info svg {
+  color: #1064a3;
+}
+
+.provider-info span {
+  font-weight: 500;
+  color: #1064a3;
+}
+
+.suggestion-title {
+  font-weight: 500;
+  color: #2c3e50;
+  margin-bottom: 15px;
+  text-align: left;
+}
+
+.example-questions li {
+  padding: 12px 16px;
+  margin-bottom: 10px;
+  background-color: #f0f7ff;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.3s;
+  color: #1064a3;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  box-shadow: 0 1px 3px rgba(16, 100, 163, 0.1);
+  border: 1px solid rgba(16, 100, 163, 0.1);
+}
+
+.example-questions li svg {
+  color: #1064a3;
+  flex-shrink: 0;
 } 
