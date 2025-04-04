@@ -22,7 +22,6 @@ import ChatHeader from './ChatHeader.vue';
 import ChatMessages from './ChatMessages.vue';
 import ChatInput from './ChatInput.vue';
 import SettingsPanel from './SettingsPanel.vue';
-import ChatHistory from './ChatHistory.vue';
 import BottomControls from './BottomControls.vue';
 import NotificationBar from './NotificationBar.vue';
 import ChatStyles from './ChatStyles.vue';
@@ -158,7 +157,7 @@ const sendMessage = () => {
   chatSendMessage(createNewChat, currentChatId.value, chatHistoryList.value, saveCurrentChat);
   // 添加一个短暂延迟后滚动到底部，确保DOM更新完成
   setTimeout(() => {
-    const chatMessagesElement = document.querySelector('.chat-messages');
+    const chatMessagesElement = document.querySelector('.messages-container');
     if (chatMessagesElement) {
       chatMessagesElement.scrollTop = chatMessagesElement.scrollHeight;
     }
@@ -391,6 +390,121 @@ const handleToggleTool = (event: { serverId: string, toolName: string, enabled: 
   console.log(`工具状态变更: ${event.serverId}.${event.toolName} => ${event.enabled ? '启用' : '禁用'}`);
   // 在这里可以根据需要添加更多逻辑，例如更新配置或通知服务器
 };
+
+// 处理重新回答请求
+const handleRegenerateAnswer = async (groupIndex: number) => {
+  if (isLoading.value) return;
+  
+  // 每两条消息为一组（用户+AI），找到对应组的用户消息
+  const userMessageIndex = groupIndex * 2;
+  if (userMessageIndex >= messages.value.length) {
+    showNotification('无法找到要重新回答的消息');
+    return;
+  }
+  
+  // 获取用户问题
+  const userMessage = messages.value[userMessageIndex];
+  if (!userMessage || userMessage.role !== 'user') {
+    showNotification('找不到对应的用户消息');
+    return;
+  }
+  
+  const userQuestion = userMessage.content;
+  
+  // 设置加载状态
+  isLoading.value = true;
+  
+  try {
+    // 保留用户消息，移除后续所有消息
+    messages.value = messages.value.slice(0, userMessageIndex + 1);
+    
+    // 添加一个初始的助手消息占位符，用于流式更新
+    const assistantMessageIndex = messages.value.length;
+    messages.value.push({
+      role: 'assistant',
+      content: '',
+      isComplete: false
+    });
+    
+    // 滚动到底部（确保新消息可见）
+    setTimeout(() => {
+      const chatMessages = document.querySelector('.chat-messages');
+      if (chatMessages) {
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+      }
+    }, 10);
+    
+    // 定义处理流式响应的回调函数
+    const handleStreamChunk = (chunk: string) => {
+      // 更新消息内容
+      if (messages.value[assistantMessageIndex]) {
+        messages.value[assistantMessageIndex].content += chunk;
+      }
+    };
+    
+    // 处理消息并获取流式响应
+    let currentToolCalls: any[] = [];
+
+    // 定义工具调用处理器
+    const handleToolCall = (toolCall: any) => {
+      // 创建工具调用对象
+      const newToolCall = {
+        ...toolCall,
+        timestamp: Date.now()
+      };
+      
+      // 添加到当前工具调用列表
+      currentToolCalls.push(newToolCall);
+      
+      // 更新消息的工具调用列表
+      if (messages.value[assistantMessageIndex]) {
+        messages.value[assistantMessageIndex].toolCalls = [...currentToolCalls];
+      }
+    };
+    
+    // 清除之前的聊天历史以确保回答不受之前对话的影响
+    mcpClient.clearHistory();
+    
+    // 将当前用户消息添加到历史
+    mcpClient.addMessageToHistory({
+      role: 'user',
+      content: userQuestion
+    });
+    
+    // 重新处理用户消息，获取新的回答
+    const finalResponse = await mcpClient.processStreamQuery(
+      userQuestion, 
+      handleStreamChunk,
+      handleToolCall
+    );
+    
+    // 标记消息已完成
+    if (messages.value[assistantMessageIndex]) {
+      messages.value[assistantMessageIndex].isComplete = true;
+      // 添加时间戳
+      messages.value[assistantMessageIndex].timestamp = Date.now();
+    }
+    
+    // 保存当前对话到历史记录
+    saveCurrentChat(messages.value);
+    
+    // 显示成功通知
+    showNotification('已重新生成回答');
+  } catch (error) {
+    console.error('重新回答时出错:', error);
+    showNotification('重新生成回答失败');
+  } finally {
+    isLoading.value = false;
+  }
+};
+
+// 状态变量
+const showBottomControlsPanel = ref(false);
+
+// 处理底部控制栏显示/隐藏
+const toggleBottomControlsPanel = (show: boolean) => {
+  showBottomControlsPanel.value = show;
+};
 </script>
 
 <template>
@@ -466,16 +580,6 @@ const handleToggleTool = (event: { serverId: string, toolName: string, enabled: 
       @request-tools-info="requestToolsInfo"
     />
     
-    <!-- 历史对话面板 -->
-    <ChatHistory
-      :showHistoryPanel="showHistoryPanel"
-      :chatHistoryList="chatHistoryList"
-      :currentChatId="currentChatId"
-      @toggle-history="toggleHistoryPanelManual"
-      @load-chat="loadChat"
-      @delete-chat="deleteChat"
-    />
-    
     <!-- 聊天消息区域 -->
     <ChatMessages
       :messages="messages"
@@ -483,36 +587,49 @@ const handleToggleTool = (event: { serverId: string, toolName: string, enabled: 
       :formatMessage="formatMessage"
       @open-settings="toggleSettingsPanel"
       @use-example="useExampleMessage"
+      @regenerate="handleRegenerateAnswer"
     />
     
     <!-- 底部控制栏 -->
-    <BottomControls
-      :show-settings="showSettings.value"
-      :provider-id="providerId"
-      :model-id="modelId"
-      :custom-model-id="customModelId"
-      :custom-models="customModels"
-      :available-models="availableModels"
-      :show-model-dropdown="showModelDropdown"
-      @toggle-model-dropdown="() => { showModelDropdown = !showModelDropdown }"
-      @select-model="selectModel"
-      @select-custom-model="selectCustomModel"
-      @toggle-history="toggleHistoryPanelManual"
-      @create-new-chat="handleCreateNewChat"
-      @open-settings="toggleSettingsPanel"
-    >
-      <ToolsPanel 
-        :server-tools="serverTools"
-        :mcp-servers="mcpServers"
-        @toggle-tool="handleToggleTool"
-      />
-    </BottomControls>
+    <div class="bottom-controls-container">
+      <transition name="slide-up">
+        <BottomControls
+          v-if="showBottomControlsPanel"
+          :show-settings="showSettings.value"
+          :provider-id="providerId"
+          :model-id="modelId"
+          :custom-model-id="customModelId"
+          :custom-models="customModels"
+          :available-models="availableModels"
+          :show-model-dropdown="showModelDropdown"
+          @toggle-model-dropdown="() => { showModelDropdown = !showModelDropdown }"
+          @select-model="selectModel"
+          @select-custom-model="selectCustomModel"
+          @create-new-chat="handleCreateNewChat"
+          @open-settings="toggleSettingsPanel"
+        >
+          <ToolsPanel 
+            :server-tools="serverTools"
+            :mcp-servers="mcpServers"
+            @toggle-tool="handleToggleTool"
+          />
+        </BottomControls>
+      </transition>
+    </div>
     
-    <!-- 消息输入区域 -->
+    <!-- 集成的消息输入和历史面板区域 -->
     <ChatInput
       :isLoading="isLoading"
       :hasApiKey="!!apiKey"
+      :showHistoryPanel="showHistoryPanel"
+      :chatHistoryList="chatHistoryList"
+      :currentChatId="currentChatId"
       @send="handleSendMessage"
+      @toggle-history="toggleHistoryPanelManual"
+      @load-chat="loadChat"
+      @delete-chat="deleteChat"
+      @create-new-chat="handleCreateNewChat"
+      @toggle-bottom-controls="toggleBottomControlsPanel"
     />
     
     <!-- 全局样式 -->
@@ -522,4 +639,16 @@ const handleToggleTool = (event: { serverId: string, toolName: string, enabled: 
 
 <style>
 @import '../styles/chat.css';
+
+/* 底部控制栏动画 */
+.slide-up-enter-active,
+.slide-up-leave-active {
+  transition: all 0.3s ease;
+}
+
+.slide-up-enter-from,
+.slide-up-leave-to {
+  transform: translateY(20px);
+  opacity: 0;
+}
 </style> 

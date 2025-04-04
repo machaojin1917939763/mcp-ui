@@ -37,54 +37,117 @@
       </div>
     </div>
     
-    <div v-else class="messages-container">
-      <div v-for="(group, groupIndex) in messageGroups" :key="`group-${groupIndex}`" class="message-group">
-        <!-- 用户消息 -->
-        <div v-if="group.user" :class="['message', 'user']">
-          <div class="message-avatar">
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-              <circle cx="12" cy="7" r="4"></circle>
-            </svg>
+    <div v-else class="chat-content-wrapper">
+      <div class="messages-container">
+        <div v-for="(group, groupIndex) in messageGroups" :key="`group-${groupIndex}`" class="message-group">
+          <!-- 用户消息 -->
+          <div v-if="group.user" :class="['message', 'user']">
+            <div class="message-content">
+              <div v-html="formatMessage(group.user.content)" class="message-text"></div>
+              <div class="message-actions">
+                <div class="message-time">{{ formatTime(group.user.timestamp) }}</div>
+                <button class="copy-message-button" @click="copyMessage(group.user.content, group.user.id)" :class="{ 'copied': copiedMessageIds[group.user.id || ''] }">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                  </svg>
+                </button>
+              </div>
+            </div>
+            <div class="message-avatar">
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                <circle cx="12" cy="7" r="4"></circle>
+              </svg>
+            </div>
           </div>
-          <div class="message-content">
-            <div v-html="formatMessage(group.user.content)" class="message-text"></div>
-            <div class="message-time">{{ formatTime(group.user.timestamp) }}</div>
+          
+          <!-- AI消息 -->
+          <div v-if="group.assistant" :class="['message', 'assistant']">
+            <div class="message-avatar">
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"></circle>
+                <path d="M12 16v-4"></path>
+                <path d="M12 8h.01"></path>
+              </svg>
+            </div>
+            <div class="message-content">
+              <div v-html="processMessageContent(group.assistant.content)" class="message-text"></div>
+              
+              <!-- 工具调用组件 -->
+              <div v-if="group.assistant.toolCalls && group.assistant.toolCalls.length > 0" class="tool-calls-container">
+                <ToolCallView
+                  v-for="(toolCall, index) in group.assistant.toolCalls"
+                  :key="index"
+                  :toolName="toolCall.name"
+                  :params="toolCall.params"
+                  :result="toolCall.result"
+                  :error="toolCall.error"
+                  :success="toolCall.success"
+                />
+              </div>
+              
+              <!-- 未完成消息的生成中指示器 -->
+              <div v-if="group.assistant.isComplete === false" class="generating-indicator">
+                <span></span>
+                <span></span>
+                <span></span>
+              </div>
+              <div class="message-actions">
+                <div class="message-time">{{ formatTime(group.assistant.timestamp) }}</div>
+                <div class="message-buttons">
+                  <button class="copy-message-button" @click="copyMessage(group.assistant.content, group.assistant.id || '')" :class="{ 'copied': copiedMessageIds[group.assistant.id || ''] }">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                    </svg>
+                  </button>
+                  <button v-if="group.assistant.isComplete !== false" class="regenerate-button" @click="regenerateAnswer(groupIndex)" title="重新回答">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M23 4v6h-6"></path>
+                      <path d="M1 20v-6h6"></path>
+                      <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10"></path>
+                      <path d="M20.49 15a9 9 0 0 1-14.85 3.36L1 14"></path>
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
-        
-        <!-- AI消息 -->
-        <div v-if="group.assistant" :class="['message', 'assistant']">
-          <div class="message-avatar">
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="12" cy="12" r="10"></circle>
-              <path d="M12 16v-4"></path>
-              <path d="M12 8h.01"></path>
+      </div>
+
+      <!-- 预览图面板 -->
+      <div class="preview-panel" v-if="previewImages.length > 0">
+        <div class="preview-panel-header">
+          <h3>预览图</h3>
+          <button class="close-preview-btn" @click="clearPreviewImages">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
             </svg>
-          </div>
-          <div class="message-content">
-            <div v-html="processMessageContent(group.assistant.content)" class="message-text"></div>
-            
-            <!-- 工具调用组件 -->
-            <div v-if="group.assistant.toolCalls && group.assistant.toolCalls.length > 0" class="tool-calls-container">
-              <ToolCallView
-                v-for="(toolCall, index) in group.assistant.toolCalls"
-                :key="index"
-                :toolName="toolCall.name"
-                :params="toolCall.params"
-                :result="toolCall.result"
-                :error="toolCall.error"
-                :success="toolCall.success"
-              />
+          </button>
+        </div>
+        <div class="preview-images">
+          <div v-for="(image, index) in previewImages" :key="index" class="preview-image-wrapper">
+            <img :src="image.url" :alt="image.alt || '预览图'" class="preview-image" />
+            <div class="image-caption" v-if="image.alt">{{ image.alt }}</div>
+            <div class="image-actions">
+              <button class="open-image-btn" @click="openImageInNewTab(image.url)">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                  <polyline points="15 3 21 3 21 9"></polyline>
+                  <line x1="10" y1="14" x2="21" y2="3"></line>
+                </svg>
+              </button>
+              <button class="download-image-btn" @click="downloadImage(image.url, image.alt || 'image')">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                  <polyline points="7 10 12 15 17 10"></polyline>
+                  <line x1="12" y1="15" x2="12" y2="3"></line>
+                </svg>
+              </button>
             </div>
-            
-            <!-- 未完成消息的生成中指示器 -->
-            <div v-if="group.assistant.isComplete === false" class="generating-indicator">
-              <span></span>
-              <span></span>
-              <span></span>
-            </div>
-            <div class="message-time">{{ formatTime(group.assistant.timestamp) }}</div>
           </div>
         </div>
       </div>
@@ -93,13 +156,19 @@
 </template>
 
 <script setup lang="ts">
-import { computed, defineProps, defineEmits } from 'vue';
-import type { ChatMessage, ToolCall } from '../composables';
+import { computed, defineProps, defineEmits, ref, watch } from 'vue';
+import type { ChatMessage } from '../composables';
+import type { ToolCall } from '../composables/useChat';
 import ToolCallView from './ToolCallView.vue';
 
 interface MessageGroup {
   user?: ChatMessage;
   assistant?: ChatMessage;
+}
+
+interface PreviewImage {
+  url: string;
+  alt?: string;
 }
 
 const props = defineProps({
@@ -117,7 +186,13 @@ const props = defineProps({
   }
 });
 
-const emit = defineEmits(['open-settings', 'use-example']);
+const emit = defineEmits(['open-settings', 'use-example', 'regenerate']);
+
+// 跟踪已复制的消息ID
+const copiedMessageIds = ref<Record<string, boolean>>({});
+
+// 预览图数组
+const previewImages = ref<PreviewImage[]>([]);
 
 const openSettings = () => {
   emit('open-settings');
@@ -125,6 +200,11 @@ const openSettings = () => {
 
 const useExample = (example: string) => {
   emit('use-example', example);
+};
+
+// 处理重新回答
+const regenerateAnswer = (groupIndex: number) => {
+  emit('regenerate', groupIndex);
 };
 
 // 处理消息内容，识别工具调用标记
@@ -142,6 +222,115 @@ const formatTime = (timestamp?: number) => {
   }
   return new Date(timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
 };
+
+// 复制消息内容
+const copyMessage = (content: string, id: string) => {
+  // 创建一个临时元素来保存纯文本内容
+  const tempElement = document.createElement('div');
+  tempElement.innerHTML = content;
+  const plainText = tempElement.textContent || tempElement.innerText || content;
+  
+  // 复制到剪贴板
+  navigator.clipboard.writeText(plainText)
+    .then(() => {
+      // 标记消息为已复制
+      copiedMessageIds.value[id] = true;
+      
+      // 显示复制成功通知
+      showCopySuccess();
+      
+      // 2秒后重置复制状态
+      setTimeout(() => {
+        copiedMessageIds.value[id] = false;
+      }, 2000);
+    })
+    .catch(err => {
+      console.error('复制失败:', err);
+      alert('复制失败，请手动复制');
+    });
+};
+
+// 显示复制成功提示
+const showCopySuccess = () => {
+  const notification = document.createElement('div');
+  notification.className = 'copy-success-notification';
+  notification.textContent = '已复制到剪贴板';
+  
+  document.body.appendChild(notification);
+  
+  // 添加动画类
+  setTimeout(() => {
+    notification.classList.add('show');
+  }, 10);
+  
+  // 2秒后移除
+  setTimeout(() => {
+    notification.classList.remove('show');
+    setTimeout(() => {
+      document.body.removeChild(notification);
+    }, 300);
+  }, 2000);
+};
+
+// 清除预览图
+const clearPreviewImages = () => {
+  previewImages.value = [];
+};
+
+// 在新标签页中打开图片
+const openImageInNewTab = (url: string) => {
+  window.open(url, '_blank');
+};
+
+// 下载图片
+const downloadImage = (url: string, filename: string) => {
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+};
+
+// 从消息内容中提取图片
+const extractImagesFromMessage = (content: string) => {
+  // 创建临时元素解析HTML
+  const tempElement = document.createElement('div');
+  tempElement.innerHTML = content;
+  
+  // 查找所有图片元素
+  const imgElements = tempElement.querySelectorAll('img');
+  
+  // 将图片信息添加到预览数组
+  imgElements.forEach(img => {
+    const url = img.src;
+    const alt = img.alt;
+    
+    // 避免重复添加相同的图片
+    if (url && !previewImages.value.some(image => image.url === url)) {
+      previewImages.value.push({ url, alt });
+    }
+  });
+};
+
+// 监听消息变化，自动提取图片
+watch(() => props.messages, (newMessages) => {
+  // 清空预览图
+  previewImages.value = [];
+  
+  // 遍历所有消息，提取图片
+  newMessages.forEach(message => {
+    if (message.content && typeof message.content === 'string') {
+      // 对于AI消息，需要先处理格式化
+      if (message.role === 'assistant') {
+        const formattedContent = processMessageContent(message.content);
+        extractImagesFromMessage(formattedContent);
+      } else {
+        extractImagesFromMessage(props.formatMessage(message.content));
+      }
+    }
+  });
+}, { deep: true });
 
 // 计算属性：处理消息分组，确保用户消息在上，AI回复在下
 const messageGroups = computed<MessageGroup[]>(() => {
@@ -175,11 +364,139 @@ const messageGroups = computed<MessageGroup[]>(() => {
 </script>
 
 <style scoped>
+.chat-content-wrapper {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  position: relative;
+}
+
 .messages-container {
   display: flex;
   flex-direction: column;
-  gap: 24px;
-  padding-bottom: 10px;
+  gap: 28px;
+  padding-bottom: 15px;
+  flex: 1;
+  overflow-y: auto;
+  /* 已经通过全局样式隐藏了滚动条 */
+}
+
+/* 预览图面板样式 */
+.preview-panel {
+  width: 280px;
+  min-width: 280px;
+  border-left: 1px solid #eaeaea;
+  background-color: #fafafa;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  /* 已经通过全局样式隐藏了滚动条 */
+}
+
+.preview-panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  border-bottom: 1px solid #eaeaea;
+  background-color: #f5f5f5;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.preview-panel-header h3 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #333;
+}
+
+.close-preview-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #666;
+}
+
+.close-preview-btn:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+  color: #333;
+}
+
+.preview-images {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.preview-image-wrapper {
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  background-color: white;
+  position: relative;
+}
+
+.preview-image {
+  width: 100%;
+  height: auto;
+  max-height: 250px;
+  object-fit: contain;
+  display: block;
+}
+
+.image-caption {
+  padding: 8px 12px;
+  font-size: 0.85rem;
+  color: #666;
+  text-align: center;
+  border-top: 1px solid #f0f0f0;
+  background-color: #fafafa;
+}
+
+.image-actions {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: flex;
+  gap: 8px;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.preview-image-wrapper:hover .image-actions {
+  opacity: 1;
+}
+
+.open-image-btn,
+.download-image-btn {
+  background-color: rgba(255, 255, 255, 0.9);
+  border: none;
+  border-radius: 4px;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  color: #555;
+  transition: all 0.2s ease;
+}
+
+.open-image-btn:hover,
+.download-image-btn:hover {
+  background-color: white;
+  color: #1064a3;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.15);
 }
 
 /* 平滑滚动效果 */
@@ -199,13 +516,14 @@ const messageGroups = computed<MessageGroup[]>(() => {
 .message-text {
   line-height: 1.5;
   word-break: break-word;
+  font-size: 15px;
 }
 
 /* 用户消息特定样式 */
 .user .message-content {
   background: linear-gradient(135deg, #10a37f, #0d8c6f);
   color: white;
-  border-top-right-radius: 2px;
+  border-top-left-radius: 2px;
 }
 
 /* 修改AI消息样式 */
@@ -267,16 +585,99 @@ const messageGroups = computed<MessageGroup[]>(() => {
   opacity: 1;
 }
 
+/* 消息操作按钮样式 */
+.message-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 6px;
+}
+
+.message-buttons {
+  display: flex;
+  gap: 4px;
+}
+
+.copy-message-button, .regenerate-button {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  opacity: 0.5;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.copy-message-button:hover, .regenerate-button:hover {
+  opacity: 1;
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+.copy-message-button.copied {
+  color: #10a37f;
+  opacity: 1;
+}
+
+.regenerate-button {
+  color: #3498db;
+}
+
+.regenerate-button:hover {
+  background-color: rgba(52, 152, 219, 0.1);
+}
+
+.user .copy-message-button {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.user .copy-message-button:hover {
+  background-color: rgba(255, 255, 255, 0.2);
+}
+
+.user .copy-message-button.copied {
+  color: #ffffff;
+  opacity: 1;
+}
+
+.assistant .copy-message-button,
+.assistant .regenerate-button {
+  color: rgba(0, 0, 0, 0.6);
+}
+
 /* 时间戳样式优化 */
 .message-time {
   font-size: 0.75rem;
   color: rgba(0, 0, 0, 0.4);
-  margin-top: 6px;
-  text-align: right;
+  text-align: left;
 }
 
 .user .message-time {
   color: rgba(255, 255, 255, 0.7);
+}
+
+/* 复制成功通知样式 */
+:deep(.copy-success-notification) {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  background-color: rgba(16, 163, 127, 0.9);
+  color: white;
+  padding: 8px 16px;
+  border-radius: 4px;
+  font-size: 14px;
+  opacity: 0;
+  transition: all 0.3s ease;
+  z-index: 1000;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+:deep(.copy-success-notification.show) {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
 }
 
 /* 改进的加载指示器 */
@@ -331,4 +732,30 @@ const messageGroups = computed<MessageGroup[]>(() => {
     transform: translateY(0) scale(1);
   }
 }
+
+/* 响应式样式 */
+@media (max-width: 768px) {
+  .preview-panel {
+    width: 220px;
+    min-width: 220px;
+  }
+}
+
+.history-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 10px;
+  /* 删除自定义滚动条样式，使用全局隐藏滚动条的样式 */
+}
+
+/* 删除自定义滚动条样式
+.history-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.history-list::-webkit-scrollbar-thumb {
+  background-color: #ddd;
+  border-radius: 3px;
+}
+*/
 </style> 
