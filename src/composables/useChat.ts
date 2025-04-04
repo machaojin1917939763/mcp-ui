@@ -1,41 +1,35 @@
-import { ref, computed, watch } from 'vue';
+import { ref, computed, watch, nextTick } from 'vue';
 import { MCPClient } from '../utils/MCPClient';
 import type { ChatHistoryItem } from './useChatHistory';
+import { useChatHistory } from './useChatHistory';
+import { useUIState } from './useUIState';
+import type { AxiosError } from 'axios';
 import { marked } from 'marked';
 import hljs from 'highlight.js';
 
-// 配置marked的渲染器
-const renderer = new marked.Renderer();
-// 配置marked 
+// 设置marked选项
 marked.setOptions({
-  renderer: renderer,
-  breaks: true,  // 将换行符转换为<br>
-  gfm: true,     // 启用GitHub风格的Markdown
+  breaks: true, // 将换行符转换为<br>
+  gfm: true     // 使用GitHub风格的Markdown
 });
 
-// 添加代码高亮
-const markedHighlight = {
-  highlight: function(code: string, lang: string) {
+// 自定义高亮函数
+function highlightCode(code: string, language?: string): string {
+  if (language && hljs.getLanguage(language)) {
     try {
-      if (lang && hljs.getLanguage(lang)) {
-        return hljs.highlight(code, { language: lang }).value;
-      } else {
-        return hljs.highlightAuto(code).value;
-      }
-    } catch (e) {
-      console.error('代码高亮失败:', e);
-      return code;
+      return hljs.highlight(code, { language }).value;
+    } catch (err) {
+      console.error('高亮错误:', err);
     }
   }
-};
+  return hljs.highlightAuto(code).value;
+}
 
-// 应用marked配置
-marked.use(markedHighlight as any);
-
+// 消息接口
 export interface ChatMessage {
-  role: 'user' | 'assistant' | 'system';
+  role: 'system' | 'user' | 'assistant';
   content: string;
-  // 新增字段，用于标记消息是否完成
+  timestamp?: number;
   isComplete?: boolean;
 }
 
@@ -176,14 +170,92 @@ export function useChat() {
     }, 3000);
   }
   
-  // 格式化消息
+  // 格式化消息，支持Markdown
   function formatMessage(content: string): string {
+    if (!content) return '';
+    
     try {
+      // 解码HTML实体编码
+      function decodeHTMLEntities(text: string): string {
+        const textArea = document.createElement('textarea');
+        textArea.innerHTML = text;
+        return textArea.value;
+      }
+      
+      // 使用DOMParser来解码HTML实体
+      function safeDecodeHTML(html: string): string {
+        try {
+          return decodeHTMLEntities(html);
+        } catch (e) {
+          console.error('解码HTML失败:', e);
+          return html;
+        }
+      }
+      
+      // 处理内容中的HTML实体
+      const decodedContent = safeDecodeHTML(content);
+      
+      // 代码块接口定义
+      interface CodeBlock {
+        language: string;
+        code: string;
+      }
+      
+      // 处理代码块，保存它们以避免被marked处理
+      const codeBlocks: CodeBlock[] = [];
+      const processedContent = decodedContent.replace(/```(\w*)\n([\s\S]+?)```/g, (match, language, code) => {
+        // 为HTML代码特殊处理
+        if (language === 'html') {
+          // 在这里解码HTML实体，以便正确显示
+          code = safeDecodeHTML(code);
+        }
+        const id = `CODE_BLOCK_${codeBlocks.length}`;
+        codeBlocks.push({ language, code });
+        return id;
+      });
+      
       // 使用marked解析Markdown
-      return marked.parse(content) as string;
+      const htmlResult = marked(processedContent);
+      
+      // 确保结果是字符串
+      if (typeof htmlResult !== 'string') {
+        console.error('marked返回了非字符串结果');
+        return content;
+      }
+      
+      // 还原代码块
+      let html = htmlResult;
+      codeBlocks.forEach((block, index) => {
+        const id = `CODE_BLOCK_${index}`;
+        
+        // 应用代码高亮
+        const highlightedCode = block.language ? highlightCode(block.code, block.language) : highlightCode(block.code);
+        
+        // 创建包含复制按钮的代码块HTML
+        const codeBlockHTML = `
+          <div class="code-block-wrapper">
+            <div class="code-block-header">
+              <span class="code-language">${block.language || '代码'}</span>
+              <button class="copy-btn" onclick="window.copyCode(this)">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                </svg>
+                <span>复制</span>
+              </button>
+            </div>
+            <pre><code class="hljs ${block.language ? `language-${block.language}` : ''}">${highlightedCode}</code></pre>
+          </div>
+        `;
+        
+        // 替换ID为代码块HTML
+        html = html.replace(id, codeBlockHTML);
+      });
+      
+      return html;
     } catch (error) {
       console.error('Markdown解析失败:', error);
-      // 如果解析失败，退回到简单的文本格式化
+      // 如果解析失败，回退到简单替换
       return content.replace(/\n/g, '<br>');
     }
   }

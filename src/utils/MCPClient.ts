@@ -361,13 +361,26 @@ export class MCPClient {
       content: query
     });
     
+    // 解码HTML实体函数
+    const decodeHTMLEntities = (text: string): string => {
+      const textArea = document.createElement('textarea');
+      textArea.innerHTML = text;
+      return textArea.value;
+    };
+    
+    // 封装onChunk回调，确保解码HTML实体
+    const safeOnChunk = (chunk: string) => {
+      const decodedChunk = decodeHTMLEntities(chunk);
+      onChunk(decodedChunk);
+    };
+    
     try {
       // 如果LLM服务已初始化，直接使用
       if (this.llmService) {
         // 使用流式API
         const response = await this.llmService.sendStreamMessage(
           this.messageHistory,
-          onChunk,
+          safeOnChunk,
           this.availableTools
         );
         
@@ -382,17 +395,17 @@ export class MCPClient {
             for (const call of responseData.tool_calls) {
               try {
                 // 通知正在调用工具
-                onChunk(`\n正在调用工具 ${call.name}...\n`);
+                safeOnChunk(`\n正在调用工具 ${call.name}...\n`);
                 
                 const toolResult = await this.callTool(call.name, call.arguments);
                 const toolResponse = `使用工具 ${call.name} 的结果：\n${JSON.stringify(toolResult.result, null, 2)}\n\n`;
                 
                 finalResponse += toolResponse;
-                onChunk(toolResponse);
+                safeOnChunk(toolResponse);
               } catch (error) {
                 const errorMsg = `调用工具 ${call.name} 失败：${(error as Error).message}\n\n`;
                 finalResponse += errorMsg;
-                onChunk(errorMsg);
+                safeOnChunk(errorMsg);
               }
             }
             
@@ -418,7 +431,7 @@ export class MCPClient {
       } else {
         // 暂不支持服务端的流式响应，使用普通响应代替
         const responseText = await this.processQuery(query);
-        onChunk(responseText);
+        safeOnChunk(responseText);
         return responseText;
       }
     } catch (error) {
@@ -431,7 +444,7 @@ export class MCPClient {
         content: errorMessage
       });
       
-      onChunk(errorMessage);
+      safeOnChunk(errorMessage);
       return errorMessage;
     }
   }

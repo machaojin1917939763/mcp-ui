@@ -21,7 +21,7 @@ export function useChatHistory() {
   }
 
   // 创建新对话
-  function createNewChat() {
+  function createNewChat(messages?: any[], mcpClient?: any) {
     const id = Date.now().toString();
     const newChat = {
       id,
@@ -33,6 +33,16 @@ export function useChatHistory() {
     // 将新对话添加到历史列表最前面
     chatHistoryList.value.unshift(newChat);
     currentChatId.value = id;
+    
+    // 如果提供了消息数组，清空它
+    if (messages) {
+      messages.splice(0, messages.length);
+    }
+    
+    // 如果提供了mcpClient，清空历史
+    if (mcpClient) {
+      mcpClient.clearHistory();
+    }
     
     // 保存到本地存储
     localStorage.setItem('chatHistoryList', JSON.stringify(chatHistoryList.value));
