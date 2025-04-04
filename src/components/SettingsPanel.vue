@@ -41,6 +41,17 @@
         </div>
         <div 
           class="settings-menu-item" 
+          :class="{ active: settingsTab === 'mcp' }"
+          @click="settingsTab = 'mcp'"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect>
+            <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path>
+          </svg>
+          <span>MCP服务器</span>
+        </div>
+        <div 
+          class="settings-menu-item" 
           :class="{ active: settingsTab === 'about' }"
           @click="settingsTab = 'about'"
         >
@@ -175,6 +186,301 @@
         </div>
       </div>
       
+      <!-- MCP服务器设置页面 -->
+      <div class="settings-content" v-if="settingsTab === 'mcp'">
+        <h3>MCP服务器设置</h3>
+        
+        <div class="mcp-description">
+          <p>MCP (Model Context Protocol) 是一种协议，允许AI模型通过工具与外部系统进行交互。</p>
+          <p>您可以配置多个MCP服务器，以便AI可以使用它们提供的工具。</p>
+        </div>
+        
+        <div class="settings-group">
+          <h4>已配置的MCP服务器</h4>
+          <div class="mcp-servers-list">
+            <div v-if="mcpServers.length === 0" class="no-servers">
+              <p>暂无配置的服务器。请添加一个新服务器。</p>
+            </div>
+            <div 
+              v-for="(server, index) in mcpServers" 
+              :key="server.id" 
+              class="mcp-server-item-wrapper"
+            >
+              <div class="mcp-server-item">
+              <div class="mcp-server-details">
+                <div class="mcp-server-header">
+                  <div class="mcp-server-name">{{ server.name }}</div>
+                  <div class="mcp-server-status" :class="{ enabled: server.enabled }">
+                    {{ server.enabled ? '已启用' : '已禁用' }}
+                  </div>
+                </div>
+                <div class="mcp-server-id">ID: {{ server.id }}</div>
+                  
+                  <!-- SSE类型显示URL -->
+                  <div v-if="server.transport === 'sse'" class="mcp-server-url">
+                    URL: {{ server.url }}
+                  </div>
+                  
+                  <!-- STDIO类型显示命令和参数 -->
+                  <div v-if="server.transport === 'stdio'" class="mcp-server-command">
+                    命令: {{ server.command }}
+                    <div class="mcp-server-args" v-if="server.args && server.args.length">
+                      参数:
+                      <div class="args-pills">
+                        <span 
+                          v-for="(arg, idx) in server.args" 
+                          :key="idx"
+                          class="arg-pill"
+                        >
+                          {{ arg }}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div class="mcp-server-transport">传输方式: {{ server.transport?.toUpperCase() || 'SSE' }}</div>
+                <div v-if="server.description" class="mcp-server-description">
+                  {{ server.description }}
+                </div>
+                  
+                  <!-- 服务器状态信息 -->
+                  <div class="mcp-server-status-info" v-if="server.enabled">
+                    <div class="status-indicator" :class="{ connected: props.serverConnectionStatus[server.id]?.connected }">
+                      <span class="status-dot"></span>
+                      <span class="status-text">
+                        {{ server.transport === 'stdio' 
+                          ? '等待调用' 
+                          : (props.serverConnectionStatus[server.id]?.connected ? '已连接' : '未连接') 
+                        }}
+                      </span>
+                    </div>
+                    <div class="last-checked" v-if="props.serverConnectionStatus[server.id]?.lastChecked">
+                      最后检查: {{ new Date(props.serverConnectionStatus[server.id]?.lastChecked || 0).toLocaleString() }}
+                    </div>
+                    <div v-if="server.transport === 'stdio'" class="stdio-info">
+                      <div class="stdio-note">
+                        <strong>提示:</strong> {{ props.serverConnectionStatus[server.id]?.message || 'STDIO服务器将在您首次调用工具时启动' }}
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <!-- 服务器工具列表 -->
+                  <div class="mcp-server-tools" v-if="server.enabled && props.serverTools[server.id]?.length">
+                    <div class="tools-header" @click="toggleToolsList(server.id)">
+                      <span>可用工具 ({{ props.serverTools[server.id]?.length || 0 }})</span>
+                      <span class="toggle-icon">{{ props.expandedToolServers.includes(server.id) ? '▼' : '▶' }}</span>
+                    </div>
+                    <div class="tools-list" v-if="props.expandedToolServers.includes(server.id)">
+                      <div class="tool-item" v-for="tool in props.serverTools[server.id]" :key="tool.name">
+                        <div class="tool-name">{{ tool.name }}</div>
+                        <div class="tool-description">{{ tool.description }}</div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <!-- 对于STDIO服务器但没有工具的情况显示提示 -->
+                  <div class="mcp-server-tools" v-else-if="server.enabled && server.transport === 'stdio'">
+                    <div class="tools-header">
+                      <span>工具信息</span>
+                    </div>
+                    <div class="tools-list">
+                      <div class="tool-item">
+                        <div class="tool-description">STDIO服务器的工具将在首次调用时加载。当前未知可用工具列表。</div>
+                      </div>
+                      <div class="tool-item">
+                        <button 
+                          type="button" 
+                          class="load-tools-btn"
+                          @click="$emit('request-tools-info', server.id)"
+                        >
+                          尝试加载工具列表
+                        </button>
+                      </div>
+                    </div>
+                </div>
+              </div>
+              <div class="mcp-server-actions">
+                <button 
+                    type="button"
+                  class="server-toggle-btn" 
+                  :class="{ active: server.enabled }"
+                    @click.stop.prevent="handleServerStatusChange(server.id)"
+                >
+                  {{ server.enabled ? '禁用' : '启用' }}
+                </button>
+                  <button 
+                    type="button"
+                    class="server-delete-btn" 
+                    @click.stop.prevent="removeMcpServer(server.id)"
+                  >
+                  删除
+                </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="settings-group">
+          <h4>添加新MCP服务器</h4>
+          <div class="add-mcp-server-form">
+            <div class="input-group">
+              <label for="mcpServerId">服务器ID:</label>
+              <input 
+                type="text" 
+                id="mcpServerId" 
+                :value="newMcpServerId" 
+                @input="updateNewMcpServerId($event.target.value)"
+                placeholder="唯一标识符，如：weather" 
+                class="styled-input"
+              />
+            </div>
+            <div class="input-group">
+              <label for="mcpServerName">服务器名称:</label>
+              <input 
+                type="text" 
+                id="mcpServerName" 
+                :value="newMcpServerName" 
+                @input="updateNewMcpServerName($event.target.value)"
+                placeholder="显示名称，如：天气服务" 
+                class="styled-input"
+              />
+            </div>
+            
+            <!-- 传输方式选择 -->
+            <div class="input-group">
+              <label for="mcpServerTransport">传输方式:</label>
+              <div class="transport-options">
+                <div 
+                  class="transport-option" 
+                  :class="{ active: newMcpServerTransport === 'sse' }"
+                  @click="updateNewMcpServerTransport('sse')"
+                >
+                  <div class="transport-radio">
+                    <div class="radio-inner" v-if="newMcpServerTransport === 'sse'"></div>
+                  </div>
+                  <div class="transport-info">
+                    <div class="transport-name">SSE</div>
+                    <div class="transport-desc">Server-Sent Events - 适用于基于HTTP的服务器</div>
+                  </div>
+                </div>
+                <div 
+                  class="transport-option" 
+                  :class="{ active: newMcpServerTransport === 'stdio' }"
+                  @click="updateNewMcpServerTransport('stdio')"
+                >
+                  <div class="transport-radio">
+                    <div class="radio-inner" v-if="newMcpServerTransport === 'stdio'"></div>
+                  </div>
+                  <div class="transport-info">
+                    <div class="transport-name">STDIO</div>
+                    <div class="transport-desc">标准输入/输出 - 适用于本地运行的进程</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <!-- SSE类型特有的配置 -->
+            <div v-if="newMcpServerTransport === 'sse'" class="transport-config sse-config">
+            <div class="input-group">
+              <label for="mcpServerUrl">服务器URL:</label>
+              <input 
+                type="text" 
+                id="mcpServerUrl" 
+                :value="newMcpServerUrl" 
+                @input="updateNewMcpServerUrl($event.target.value)"
+                placeholder="例如：http://localhost:8080" 
+                class="styled-input"
+              />
+            </div>
+            </div>
+            
+            <!-- STDIO类型特有的配置 -->
+            <div v-if="newMcpServerTransport === 'stdio'" class="transport-config stdio-config">
+              <div class="input-group">
+                <label for="mcpServerCommand">命令:</label>
+                <input 
+                  type="text" 
+                  id="mcpServerCommand" 
+                  :value="newMcpServerCommand" 
+                  @input="updateNewMcpServerCommand($event.target.value)"
+                  placeholder="如：python, node, uv等" 
+                  class="styled-input"
+                />
+              </div>
+              
+              <div class="input-group">
+                <label>参数列表:</label>
+                <div class="args-list">
+                  <div v-for="(arg, idx) in newMcpServerArgs" :key="idx" class="arg-item">
+                    <input 
+                      type="text" 
+                      :value="arg" 
+                      @input="updateMcpServerArg(idx, $event.target.value)"
+                      placeholder="参数" 
+                      class="styled-input arg-input"
+                    />
+                    <button 
+                      type="button" 
+                      class="arg-remove-btn" 
+                      @click="removeMcpServerArg(idx)"
+                      aria-label="删除参数"
+                    >
+                      &times;
+                    </button>
+                  </div>
+                  <button 
+                    type="button" 
+                    class="add-arg-btn" 
+                    @click="addMcpServerArg"
+                  >
+                    添加参数
+                  </button>
+                </div>
+                <div class="args-tip">
+                  <small>提示: 对于目录路径，请使用绝对路径。例如参数：<code>--directory</code>, <code>/path/to/folder</code>, <code>run</code>, <code>script.py</code></small>
+                </div>
+              </div>
+              
+              <div class="config-example">
+                <div class="example-header">Claude桌面版配置示例：</div>
+                <pre class="config-json">{
+  "mcpServers": {
+    "{{ newMcpServerId || 'weather' }}": {
+      "command": "{{ newMcpServerCommand || 'uv' }}",
+      "args": {{ newMcpServerArgs.length ? JSON.stringify(newMcpServerArgs, null, 2) : '[\n    "--directory",\n    "/path/to/folder",\n    "run",\n    "script.py"\n  ]' }}
+    }
+  }
+}</pre>
+              </div>
+            </div>
+            
+            <div class="input-group">
+              <label for="mcpServerDesc">服务器描述 (可选):</label>
+              <input 
+                type="text" 
+                id="mcpServerDesc" 
+                :value="newMcpServerDesc" 
+                @input="updateNewMcpServerDesc($event.target.value)"
+                placeholder="这个服务器提供什么功能？" 
+                class="styled-input"
+              />
+            </div>
+
+            <button 
+              type="button" 
+              class="add-server-button" 
+              @click="addMcpServer"
+              :disabled="(newMcpServerTransport === 'sse' && !newMcpServerUrl.trim()) || 
+                         (newMcpServerTransport === 'stdio' && !newMcpServerCommand.trim()) || 
+                         !newMcpServerId.trim()"
+            >
+              添加服务器
+            </button>
+          </div>
+        </div>
+      </div>
+      
       <!-- 外观设置页面 -->
       <div class="settings-content" v-if="settingsTab === 'appearance'">
         <h3>外观设置</h3>
@@ -250,6 +556,8 @@ const user = {
 <script setup lang="ts">
 import { ref, defineProps, defineEmits, onMounted } from 'vue';
 import type { ModelInfo } from '../composables';
+import type { MCPServerConfig } from '../composables/useMCPSettings';
+import { useMCPSettings } from '../composables/useMCPSettings';
 
 // 全局类型声明
 declare global {
@@ -334,6 +642,52 @@ const props = defineProps({
   maskedApiKey: {
     type: String,
     default: ''
+  },
+  // MCP服务器相关
+  mcpServers: {
+    type: Array as () => MCPServerConfig[],
+    required: true
+  },
+  newMcpServerId: {
+    type: String,
+    required: true
+  },
+  newMcpServerName: {
+    type: String,
+    required: true
+  },
+  newMcpServerUrl: {
+    type: String,
+    required: true
+  },
+  newMcpServerDesc: {
+    type: String,
+    required: true
+  },
+  newMcpServerTransport: {
+    type: String,
+    required: true
+  },
+  newMcpServerCommand: {
+    type: String,
+    default: ''
+  },
+  newMcpServerArgs: {
+    type: Array as () => string[],
+    default: () => []
+  },
+  // 服务器状态和工具信息
+  serverConnectionStatus: {
+    type: Object as () => Record<string, { connected?: boolean; checking?: boolean; error?: string; lastChecked?: number; message?: string }>,
+    default: () => ({})
+  },
+  serverTools: {
+    type: Object as () => Record<string, any[]>,
+    default: () => ({})
+  },
+  expandedToolServers: {
+    type: Array as () => string[],
+    default: () => []
   }
 });
 
@@ -348,9 +702,24 @@ const emit = defineEmits([
   'update:newCustomModelName',
   'update:newCustomModelDesc',
   'update:currentTheme',
+  // MCP服务器相关
+  'update:newMcpServerId',
+  'update:newMcpServerName',
+  'update:newMcpServerUrl',
+  'update:newMcpServerDesc',
+  'update:newMcpServerTransport',
+  'update:newMcpServerCommand',
+  'update-mcp-server-args',
+  'add-mcp-server-arg',
+  'remove-mcp-server-arg',
   'save-settings',
   'add-custom-model',
-  'remove-custom-model'
+  'remove-custom-model',
+  'add-mcp-server',
+  'toggle-mcp-server-status',
+  'remove-mcp-server',
+  'request-tools-info',
+  'update:expandedToolServers'
 ]);
 
 // 更新函数，用于替代v-model
@@ -386,6 +755,34 @@ const updateNewCustomModelDesc = (value: string) => {
   emit('update:newCustomModelDesc', value);
 };
 
+const updateNewMcpServerId = (value: string) => {
+  emit('update:newMcpServerId', value);
+};
+
+const updateNewMcpServerName = (value: string) => {
+  emit('update:newMcpServerName', value);
+};
+
+const updateNewMcpServerUrl = (value: string) => {
+  emit('update:newMcpServerUrl', value);
+};
+
+const updateNewMcpServerDesc = (value: string) => {
+  emit('update:newMcpServerDesc', value);
+};
+
+const updateNewMcpServerTransport = (value: 'sse' | 'stdio') => {
+  emit('update:newMcpServerTransport', value);
+};
+
+const updateNewMcpServerCommand = (value: string) => {
+  emit('update:newMcpServerCommand', value);
+};
+
+const updateMcpServerArg = (index: number, value: string) => {
+  emit('update-mcp-server-args', { index, value });
+};
+
 // 加载代码高亮主题
 function loadCodeTheme(themeId: string) {
   const themeLinks = document.querySelectorAll('link[data-hljs-theme]');
@@ -415,10 +812,249 @@ function loadCodeTheme(themeId: string) {
   }, 100);
 }
 
-// 组件挂载时加载当前主题
+// 切换工具列表显示
+function toggleToolsList(serverId: string) {
+  if (props.expandedToolServers.includes(serverId)) {
+    emit('update:expandedToolServers', props.expandedToolServers.filter(id => id !== serverId));
+  } else {
+    emit('update:expandedToolServers', [...props.expandedToolServers, serverId]);
+  }
+}
+
+// 检查服务器状态
+async function checkServerStatus() {
+  for (const server of props.mcpServers) {
+    if (server.enabled) {
+      if (server.transport === 'sse') {
+        try {
+          props.serverConnectionStatus[server.id] = {
+            checking: true,
+            lastChecked: Date.now()
+          };
+          
+          // 尝试连接服务器
+          const response = await fetch(`${server.url}/health`, {
+            headers: {
+              'Authorization': `Bearer ${localStorage.getItem('apiKey') || ''}`
+            }
+          });
+          
+          if (response.ok) {
+            props.serverConnectionStatus[server.id] = {
+              connected: true,
+              lastChecked: Date.now()
+            };
+            
+            // 获取工具列表
+            fetchServerTools(server);
+          } else {
+            props.serverConnectionStatus[server.id] = {
+              connected: false,
+              error: `HTTP错误: ${response.status}`,
+              lastChecked: Date.now()
+            };
+          }
+        } catch (error: any) {
+          props.serverConnectionStatus[server.id] = {
+            connected: false,
+            error: error.message,
+            lastChecked: Date.now()
+          };
+        }
+      } else if (server.transport === 'stdio') {
+        // STDIO类型服务器的状态检查
+        props.serverConnectionStatus[server.id] = {
+          connected: false, // STDIO服务器需要调用时才会连接
+          lastChecked: Date.now(),
+          message: '服务器将在首次工具调用时启动'
+        };
+        
+        // 清空STDIO服务器的工具列表
+        props.serverTools[server.id] = [];
+      }
+    }
+  }
+}
+
+// 获取服务器工具列表
+async function fetchServerTools(server: MCPServerConfig) {
+  if (server.enabled) {
+    if (server.transport === 'sse') {
+      try {
+        const response = await fetch(`${server.url}/tools`, {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('apiKey') || ''}`
+          }
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          props.serverTools[server.id] = data.tools || [];
+        } else {
+          console.error(`获取服务器 ${server.id} 工具列表失败: HTTP错误 ${response.status}`);
+          props.serverTools[server.id] = [];
+        }
+      } catch (error) {
+        console.error(`无法获取服务器 ${server.id} 的工具列表:`, error);
+        props.serverTools[server.id] = [];
+      }
+    } else if (server.transport === 'stdio') {
+      // STDIO服务器暂不支持预先获取工具列表
+      console.log(`STDIO服务器 ${server.id} 的工具列表将在首次调用时可用`);
+      // 设置为空工具列表
+      props.serverTools[server.id] = [];
+    }
+  }
+}
+
+// 当服务器状态改变时，重新检查状态
+function handleServerStatusChange(id: string) {
+  toggleMcpServerStatus(id);
+  // 允许UI更新后再检查状态
+  setTimeout(() => {
+    checkServerStatus();
+  }, 100);
+}
+
+// 组件挂载时加载当前主题和设置监听器
 onMounted(() => {
   loadCodeTheme(currentTheme.value);
+  
+  // 使用事件委托来处理所有按钮点击
+  const serversListEl = document.querySelector('.mcp-servers-list');
+  if (serversListEl) {
+    serversListEl.addEventListener('click', (e) => {
+      const target = e.target as HTMLElement;
+      const button = target.closest('button');
+      
+      if (!button) return;
+      
+      e.preventDefault();
+      e.stopPropagation();
+      
+      // 获取服务器ID
+      const serverItemWrapper = button.closest('.mcp-server-item-wrapper');
+      if (!serverItemWrapper) return;
+      
+      const serverIndex = Array.from(
+        document.querySelectorAll('.mcp-server-item-wrapper')
+      ).indexOf(serverItemWrapper);
+      
+      if (serverIndex === -1 || !props.mcpServers[serverIndex]) return;
+      
+      const serverId = props.mcpServers[serverIndex].id;
+      
+      if (button.classList.contains('server-toggle-btn')) {
+        console.log('通过事件委托切换服务器状态:', serverId);
+        emit('toggle-mcp-server-status', serverId);
+      } else if (button.classList.contains('server-delete-btn')) {
+        console.log('通过事件委托删除服务器:', serverId);
+        emit('remove-mcp-server', serverId);
+      }
+    });
+  }
+  
+  checkServerStatus();
 });
+
+// 直接调用emit的方法
+const toggleMcpServerStatus = (serverId: string) => {
+  console.log('切换服务器状态:', serverId);
+  
+  // 找到对应的服务器
+  const server = props.mcpServers.find(s => s.id === serverId);
+  const wasEnabled = server?.enabled || false;
+  
+  // 发送切换状态的事件
+  emit('toggle-mcp-server-status', serverId);
+  
+  // 如果服务器从禁用变为启用，我们需要立即尝试获取其工具
+  setTimeout(() => {
+    // 再次查找服务器，因为状态可能已经更新
+    const updatedServer = props.mcpServers.find(s => s.id === serverId);
+    if (updatedServer && !wasEnabled && updatedServer.enabled) {
+      console.log(`服务器 ${serverId} 已启用，正在尝试获取工具列表...`);
+      
+      // 更新状态为"正在检查"
+      props.serverConnectionStatus[serverId] = {
+        checking: true,
+        connected: false,
+        lastChecked: Date.now(),
+        message: '正在检查服务器状态...'
+      };
+      
+      // 对于STDIO服务器，我们需要从MCPClient自动加载工具
+      if (updatedServer.transport === 'stdio') {
+        // 发送信号表明我们正在加载STDIO服务器工具
+        props.serverConnectionStatus[serverId] = {
+          checking: false,
+          connected: false,
+          lastChecked: Date.now(),
+          message: '等待首次调用以加载工具'
+        };
+        
+        // 尝试请求外部获取工具信息
+        emit('request-tools-info', serverId);
+      } else {
+        // 对于SSE服务器，我们可以立即尝试获取工具
+        checkSingleServerStatus(updatedServer);
+      }
+    }
+  }, 100);
+};
+
+// 检查单个服务器的状态
+async function checkSingleServerStatus(server: MCPServerConfig) {
+  if (!server.enabled) return;
+  
+  if (server.transport === 'sse') {
+    try {
+      props.serverConnectionStatus[server.id] = {
+        checking: true,
+        lastChecked: Date.now()
+      };
+      
+      // 尝试连接服务器
+      const response = await fetch(`${server.url}/health`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('apiKey') || ''}`
+        }
+      });
+      
+      if (response.ok) {
+        props.serverConnectionStatus[server.id] = {
+          connected: true,
+          lastChecked: Date.now()
+        };
+        
+        // 获取工具列表
+        fetchServerTools(server);
+      } else {
+        props.serverConnectionStatus[server.id] = {
+          connected: false,
+          error: `HTTP错误: ${response.status}`,
+          lastChecked: Date.now()
+        };
+      }
+    } catch (error: any) {
+      props.serverConnectionStatus[server.id] = {
+        connected: false,
+        error: error.message,
+        lastChecked: Date.now()
+      };
+    }
+  } else if (server.transport === 'stdio') {
+    // STDIO类型服务器的状态检查
+    props.serverConnectionStatus[server.id] = {
+      connected: false, // STDIO服务器需要调用时才会连接
+      lastChecked: Date.now(),
+      message: '服务器将在首次工具调用时启动'
+    };
+    
+    // 尝试请求外部获取工具信息
+    emit('request-tools-info', server.id);
+  }
+}
 
 // 关闭设置面板
 const closeSettings = () => {
@@ -439,404 +1075,32 @@ const addCustomModel = () => {
 const removeCustomModel = (id: string) => {
   emit('remove-custom-model', id);
 };
+
+// 添加MCP服务器
+const addMcpServer = () => {
+  console.log('添加服务器', {
+    id: props.newMcpServerId,
+    url: props.newMcpServerUrl, 
+    transport: props.newMcpServerTransport
+  });
+  emit('add-mcp-server');
+};
+
+// 添加新的方法
+const addMcpServerArg = () => {
+  emit('add-mcp-server-arg');
+};
+
+const removeMcpServerArg = (index: number) => {
+  emit('remove-mcp-server-arg', index);
+};
+
+const removeMcpServer = (serverId: string) => {
+  console.log('删除服务器:', serverId);
+  emit('remove-mcp-server', serverId);
+};
 </script> 
 
 <style scoped>
-/* 设置面板样式 */
-.settings-panel {
-  position: fixed;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  display: flex;
-  flex-direction: row;
-  width: 85%;
-  max-width: 1200px;
-  height: 100vh;
-  background-color: #fff;
-  border-radius: 8px 0 0 8px;
-  box-shadow: -4px 0 12px rgba(0, 0, 0, 0.15);
-  overflow: hidden;
-  z-index: 1001;
-  animation: slideIn 0.3s ease-out forwards;
-}
-
-@keyframes slideIn {
-  from {
-    transform: translateX(100%);
-    opacity: 0;
-  }
-  to {
-    transform: translateX(0);
-    opacity: 1;
-  }
-}
-
-/* 设置菜单样式 */
-.settings-menu {
-  width: 220px;
-  background-color: #f6f8fa;
-  border-right: 1px solid #e1e4e8;
-  padding: 30px 0;
-  overflow-y: auto;
-  height: 100%;
-}
-
-.settings-menu-item {
-  display: flex;
-  align-items: center;
-  padding: 14px 20px;
-  color: #24292e;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  margin-bottom: 4px;
-  border-left: 3px solid transparent;
-}
-
-.settings-menu-item svg {
-  margin-right: 12px;
-  color: #57606a;
-  transition: color 0.2s ease;
-}
-
-.settings-menu-item:hover {
-  background-color: rgba(0, 0, 0, 0.05);
-}
-
-.settings-menu-item.active {
-  background-color: rgba(9, 105, 218, 0.1);
-  font-weight: 600;
-  color: #0969da;
-  border-left: 3px solid #0969da;
-}
-
-.settings-menu-item.active svg {
-  color: #0969da;
-}
-
-/* 设置内容样式 */
-.settings-content {
-  flex: 1;
-  padding: 30px;
-  padding-bottom: 120px; /* 增加底部内边距，为底部按钮留出更多空间 */
-  overflow-y: auto;
-  height: 100%;
-  position: relative;
-}
-
-.settings-content h3 {
-  margin-top: 0;
-  margin-bottom: 24px;
-  color: #24292e;
-  font-size: 20px;
-  border-bottom: 1px solid #e1e4e8;
-  padding-bottom: 12px;
-}
-
-/* 设置组样式 */
-.settings-group {
-  margin-bottom: 24px;
-  position: relative;
-}
-
-.custom-provider-section {
-  margin-bottom: 120px;
-}
-
-/* 自定义模型容器 */
-.custom-models-container {
-  position: relative;
-  margin-top: 12px;
-}
-
-/* 自定义模型列表 */
-.custom-models-list {
-  margin-bottom: 20px;
-  border: 1px solid #e1e4e8;
-  border-radius: 6px;
-  overflow: hidden;
-  background-color: #f6f8fa;
-}
-
-.settings-group label {
-  display: block;
-  margin-bottom: 8px;
-  font-weight: 500;
-  color: #24292e;
-}
-
-.styled-select, .styled-input {
-  width: 100%;
-  padding: 10px 12px;
-  border-radius: 6px;
-  border: 1px solid #d0d7de;
-  font-size: 14px;
-  background-color: #fff;
-  color: #24292e;
-  transition: border-color 0.2s ease;
-}
-
-.styled-select:focus, .styled-input:focus {
-  border-color: #0969da;
-  outline: none;
-  box-shadow: 0 0 0 3px rgba(9, 105, 218, 0.3);
-}
-
-.model-description {
-  margin-top: 8px;
-  font-size: 13px;
-  color: #57606a;
-  line-height: 1.5;
-}
-
-/* 遮罩层样式 */
-.overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
-  background-color: rgba(0, 0, 0, 0.5);
-  z-index: 1000;
-  opacity: 0;
-  animation: fadeIn 0.3s ease-out forwards;
-}
-
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
-/* 自定义模型列表 */
-.custom-models-list {
-  margin-top: 12px;
-  margin-bottom: 100px;
-  border: 1px solid #e1e4e8;
-  border-radius: 6px;
-  overflow: hidden;
-  background-color: #f6f8fa;
-}
-
-.custom-model-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 12px 16px;
-  border-bottom: 1px solid #e1e4e8;
-}
-
-.custom-model-details {
-  flex: 1;
-}
-
-.custom-model-id {
-  font-weight: 600;
-  color: #24292e;
-  font-size: 14px;
-}
-
-.custom-model-name {
-  font-size: 13px;
-  color: #57606a;
-  margin-top: 2px;
-}
-
-.custom-model-actions {
-  display: flex;
-  gap: 8px;
-}
-
-.model-select-btn, .model-delete-btn {
-  padding: 4px 10px;
-  border-radius: 4px;
-  font-size: 12px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.model-select-btn {
-  background-color: #f6f8fa;
-  color: #24292e;
-  border: 1px solid #d0d7de;
-}
-
-.model-select-btn:hover {
-  background-color: #e9ebef;
-}
-
-.model-select-btn.active {
-  background-color: #0969da;
-  color: white;
-  border-color: #0969da;
-}
-
-.model-delete-btn {
-  background-color: #f6f8fa;
-  color: #d73a49;
-  border: 1px solid #d0d7de;
-}
-
-.model-delete-btn:hover {
-  background-color: #fae3e3;
-  border-color: #d73a49;
-}
-
-/* 添加模型区域 - 全新样式 */
-.add-model-section {
-  padding: 15px;
-  margin-top: 10px;
-  background-color: #e8f0fe;
-  border: 1px solid #cce0ff;
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-.add-model-section h4 {
-  margin-top: 0;
-  margin-bottom: 10px;
-  color: #1565c0;
-  font-size: 15px;
-  font-weight: 600;
-}
-
-.add-model-form {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-bottom: 12px;
-}
-
-.add-model-input {
-  padding: 10px 12px;
-  border: 1px solid #c0d6e9;
-  border-radius: 6px;
-  font-size: 14px;
-  background-color: #fff;
-  color: #333;
-  transition: all 0.2s ease;
-}
-
-.add-model-input:focus {
-  border-color: #1565c0;
-  outline: none;
-  box-shadow: 0 0 0 3px rgba(21, 101, 192, 0.2);
-}
-
-.add-model-button {
-  width: 100%;
-  padding: 12px 0;
-  background-color: #1565c0;
-  color: white;
-  border: none;
-  border-radius: 6px;
-  font-weight: 600;
-  font-size: 15px;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
-}
-
-.add-model-button:hover:not(:disabled) {
-  background-color: #0d47a1;
-  transform: translateY(-2px);
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-}
-
-.add-model-button:active:not(:disabled) {
-  transform: translateY(0);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
-}
-
-.add-model-button:disabled {
-  background-color: #90caf9;
-  opacity: 0.7;
-  cursor: not-allowed;
-}
-
-/* 设置面板底部和按钮 */
-.settings-footer {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  padding: 15px 25px;
-  margin-left: 220px;
-  background-color: #f9f9fb;
-  border-top: 1px solid #e1e4e8;
-  text-align: right;
-  z-index: 10;
-  box-shadow: 0 -2px 5px rgba(0, 0, 0, 0.05);
-}
-
-.settings-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 12px;
-}
-
-.settings-actions button {
-  padding: 8px 18px;
-  border-radius: 6px;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.save-button {
-  background-color: #0969da;
-  color: white;
-  border: none;
-}
-
-.save-button:hover {
-  background-color: #0553a8;
-  transform: translateY(-1px);
-}
-
-.cancel-button {
-  background-color: #f6f8fa;
-  color: #24292e;
-  border: 1px solid #d0d7de;
-}
-
-.cancel-button:hover {
-  background-color: #e9ebef;
-  transform: translateY(-1px);
-}
-
-/* 主题预览样式 */
-.theme-preview {
-  margin-top: 20px;
-  border: 1px solid #e1e4e8;
-  border-radius: 6px;
-  overflow: hidden;
-}
-
-.preview-label {
-  padding: 8px 12px;
-  background-color: #f4f5f7;
-  border-bottom: 1px solid #e1e4e8;
-  font-weight: 600;
-  font-size: 0.9em;
-}
-
-.preview-code-block {
-  margin: 0;
-  border: none;
-}
-
-/* 关于页面样式 */
-.about-info {
-  line-height: 1.6;
-}
-
-.about-info p {
-  margin-bottom: 12px;
-}
+@import '../styles/settings.css';
 </style> 

@@ -210,6 +210,7 @@ export function useModelSettings() {
     effectiveModelId,
     maskedApiKey,
     currentModelDescription,
+    
     saveSettings,
     selectModel,
     selectCustomModel,

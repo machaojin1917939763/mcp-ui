@@ -6,12 +6,13 @@ declare global {
   }
 }
 
-import { onMounted, watch, onUnmounted, nextTick } from 'vue';
+import { onMounted, watch, onUnmounted, nextTick, ref } from 'vue';
 import { 
   useChat, 
   useChatHistory, 
   useModelSettings, 
   useUIState,
+  useMCPSettings,
   type ModelInfo,
   type ChatMessage
 } from '../composables';
@@ -25,6 +26,7 @@ import ChatHistory from './ChatHistory.vue';
 import BottomControls from './BottomControls.vue';
 import NotificationBar from './NotificationBar.vue';
 import ChatStyles from './ChatStyles.vue';
+import ToolsPanel from './ToolsPanel.vue';
 
 // 使用组合式API
 const {
@@ -77,6 +79,26 @@ const {
   removeCustomModel
 } = useModelSettings();
 
+// MCP设置
+const {
+  mcpServers,
+  enabledMcpServers,
+  newMcpServerId,
+  newMcpServerName,
+  newMcpServerUrl,
+  newMcpServerDesc,
+  newMcpServerTransport,
+  newMcpServerCommand,
+  newMcpServerArgs,
+  addMcpServer: mcpAddServer,
+  toggleMcpServerStatus: mcpToggleServerStatus,
+  removeMcpServer: mcpRemoveServer,
+  saveMcpServers,
+  updateMcpServerArg: mcpUpdateArg,
+  addMcpServerArg: mcpAddArg,
+  removeMcpServerArg: mcpRemoveArg
+} = useMCPSettings();
+
 const {
   showSettings,
   showHistoryPanel,
@@ -85,6 +107,11 @@ const {
   closeAllPanels,
   setupClickOutsideListener
 } = useUIState();
+
+// 添加服务器状态、工具和展开状态引用
+const serverConnectionStatus = ref<Record<string, { connected?: boolean; checking?: boolean; error?: string; lastChecked?: number; message?: string }>>({});
+const serverTools = ref<Record<string, any[]>>({});
+const expandedToolServers = ref<string[]>([]);
 
 // 状态同步
 watch(chatShowHistoryPanel, (value) => {
@@ -141,10 +168,26 @@ const sendMessage = () => {
 const clearChat = () => chatClearChat(currentChatId.value, chatHistoryList.value);
 const loadChat = (chatId: string) => chatLoadChat(chatId, messages.value, mcpClient);
 const deleteChat = (chatId: string, event?: Event) => chatDeleteChat(chatId, messages.value, mcpClient, event);
-const saveSettings = () => modelSaveSettings(mcpClient, showNotification);
+const saveSettings = () => {
+  // 保存模型设置
+  modelSaveSettings(mcpClient, showNotification);
+  // 保存MCP服务器设置
+  saveMcpServers(mcpClient);
+};
 const selectModel = (newModelId: string) => modelSelectModel(newModelId, mcpClient, showNotification);
 const selectCustomModel = (id: string) => modelSelectCustomModel(id, mcpClient, showNotification);
 const addCustomModel = () => modelAddCustomModel(showNotification);
+const addMcpServer = () => mcpAddServer(showNotification);
+const toggleMcpServerStatus = (id: string) => {
+  mcpToggleServerStatus(id);
+  // 更新MCP服务器配置到MCPClient
+  saveMcpServers(mcpClient);
+};
+const removeMcpServer = (id: string) => {
+  mcpRemoveServer(id);
+  // 更新MCP服务器配置到MCPClient
+  saveMcpServers(mcpClient);
+};
 
 // 创建新对话的函数
 const handleCreateNewChat = () => {
@@ -161,12 +204,17 @@ function addCopyCodeFunction() {
     
     navigator.clipboard.writeText(textToCopy).then(() => {
       // 更新按钮文本
-      const originalHTML = button.innerHTML;
-      button.innerHTML = '<span>已复制!</span>';
+      const originalText = button.querySelector('span')?.textContent || '复制';
+      const span = button.querySelector('span');
+      if (span) span.textContent = '已复制!';
+      
+      // 添加复制成功样式
+      button.classList.add('copied');
       
       // 2秒后恢复原始按钮文本
       setTimeout(() => {
-        button.innerHTML = originalHTML;
+        if (span) span.textContent = originalText;
+        button.classList.remove('copied');
       }, 2000);
     }).catch(err => {
       console.error('复制失败:', err);
@@ -234,6 +282,9 @@ onMounted(async () => {
       // 如果有历史对话但没有当前对话ID，加载最新的对话
       loadChat(chatHistoryList.value[0].id);
     }
+    
+    // 更新MCP服务器配置到MCPClient
+    saveMcpServers(mcpClient);
   } catch (error) {
     console.error('初始化MCP客户端时出错:', error);
     messages.value.push({
@@ -256,6 +307,90 @@ onUnmounted(() => {
     cleanupClickOutside();
   }
 });
+
+// 添加MCP服务器参数更新函数
+const updateMcpServerArg = (data: { index: number, value: string }) => {
+  mcpUpdateArg(data);
+};
+
+const addMcpServerArg = () => {
+  mcpAddArg();
+};
+
+const removeMcpServerArg = (index: number) => {
+  mcpRemoveArg(index);
+};
+
+// 处理MCP服务器状态切换
+function handleMcpServerStatusToggle(id: string) {
+  // 切换服务器状态
+  toggleMcpServerStatus(id);
+  
+  // 更新MCP客户端配置
+  mcpClient.updateMcpServers(mcpServers.value);
+}
+
+// 处理请求获取服务器工具列表
+async function requestToolsInfo(serverId: string) {
+  console.log(`请求获取服务器 ${serverId} 的工具信息`);
+  
+  // 查找服务器配置
+  const server = mcpServers.value.find((s: { id: string }) => s.id === serverId);
+  if (!server || !server.enabled) return;
+  
+  try {
+    // 更新服务器状态为正在加载工具
+    serverConnectionStatus.value[serverId] = {
+      checking: true,
+      connected: false,
+      lastChecked: Date.now(),
+      message: '正在加载工具列表...'
+    };
+    
+    // 通过MCP客户端更新服务器配置
+    mcpClient.updateMcpServers(mcpServers.value);
+    
+    // 尝试从MCP客户端获取此服务器的工具列表
+    const toolsList = await mcpClient.getMcpServerTools(serverId);
+    
+    // 更新服务器工具列表数据
+    serverTools.value[serverId] = toolsList;
+    
+    // 更新服务器状态为已连接
+    serverConnectionStatus.value[serverId] = {
+      connected: true,
+      checking: false,
+      lastChecked: Date.now(),
+      message: `成功加载了 ${toolsList.length} 个工具`
+    };
+    
+    // 自动展开工具列表
+    if (!expandedToolServers.value.includes(serverId)) {
+      expandedToolServers.value.push(serverId);
+    }
+    
+    // 更新显示
+    showNotification(`成功获取到服务器 ${serverId} 的工具列表，共 ${toolsList.length} 个工具`);
+  } catch (error) {
+    console.error(`获取服务器 ${serverId} 工具列表失败:`, error);
+    
+    // 更新服务器状态为加载失败
+    serverConnectionStatus.value[serverId] = {
+      connected: false,
+      checking: false,
+      lastChecked: Date.now(),
+      message: `加载工具失败: ${(error as Error).message}`
+    };
+    
+    showNotification(`无法获取服务器 ${serverId} 的工具列表: ${(error as Error).message}`);
+  }
+}
+
+// 处理工具启用/禁用状态变更
+const handleToggleTool = (event: { serverId: string, toolName: string, enabled: boolean }) => {
+  console.log(`工具状态变更: ${event.serverId}.${event.toolName} => ${event.enabled ? '启用' : '禁用'}`);
+  // 在这里可以根据需要添加更多逻辑，例如更新配置或通知服务器
+};
 </script>
 
 <template>
@@ -292,6 +427,17 @@ onUnmounted(() => {
       :availableModels="availableModels"
       :currentModelDescription="currentModelDescription"
       :maskedApiKey="maskedApiKey"
+      :mcpServers="mcpServers"
+      :newMcpServerId="newMcpServerId"
+      :newMcpServerName="newMcpServerName"
+      :newMcpServerUrl="newMcpServerUrl"
+      :newMcpServerDesc="newMcpServerDesc"
+      :newMcpServerTransport="newMcpServerTransport"
+      :newMcpServerCommand="newMcpServerCommand"
+      :newMcpServerArgs="newMcpServerArgs"
+      :serverConnectionStatus="serverConnectionStatus"
+      :serverTools="serverTools"
+      :expandedToolServers="expandedToolServers"
       @update:showSettings="showSettings = $event"
       @update:apiKey="apiKey = $event"
       @update:providerId="providerId = $event"
@@ -301,9 +447,23 @@ onUnmounted(() => {
       @update:newCustomModelId="newCustomModelId = $event"
       @update:newCustomModelName="newCustomModelName = $event"
       @update:newCustomModelDesc="newCustomModelDesc = $event"
+      @update:newMcpServerId="newMcpServerId = $event"
+      @update:newMcpServerName="newMcpServerName = $event"
+      @update:newMcpServerUrl="newMcpServerUrl = $event"
+      @update:newMcpServerDesc="newMcpServerDesc = $event"
+      @update:newMcpServerTransport="newMcpServerTransport = $event"
+      @update:newMcpServerCommand="newMcpServerCommand = $event"
+      @update:expandedToolServers="expandedToolServers = $event"
+      @update-mcp-server-args="mcpUpdateArg($event)"
+      @add-mcp-server-arg="mcpAddArg"
+      @remove-mcp-server-arg="mcpRemoveArg($event)"
       @save-settings="saveSettings"
       @add-custom-model="addCustomModel"
       @remove-custom-model="removeCustomModel"
+      @add-mcp-server="addMcpServer"
+      @toggle-mcp-server-status="handleMcpServerStatusToggle"
+      @remove-mcp-server="removeMcpServer"
+      @request-tools-info="requestToolsInfo"
     />
     
     <!-- 历史对话面板 -->
@@ -327,20 +487,26 @@ onUnmounted(() => {
     
     <!-- 底部控制栏 -->
     <BottomControls
-      :showSettings="showSettings"
-      :providerId="providerId"
-      :modelId="modelId"
-      :customModelId="customModelId"
-      :customModels="customModels"
-      :availableModels="availableModels"
-      :showModelDropdown="showModelDropdown"
-      @toggle-model-dropdown="toggleModelDropdown"
+      :show-settings="showSettings.value"
+      :provider-id="providerId"
+      :model-id="modelId"
+      :custom-model-id="customModelId"
+      :custom-models="customModels"
+      :available-models="availableModels"
+      :show-model-dropdown="showModelDropdown"
+      @toggle-model-dropdown="() => { showModelDropdown = !showModelDropdown }"
       @select-model="selectModel"
       @select-custom-model="selectCustomModel"
       @toggle-history="toggleHistoryPanelManual"
       @create-new-chat="handleCreateNewChat"
       @open-settings="toggleSettingsPanel"
-    />
+    >
+      <ToolsPanel 
+        :server-tools="serverTools"
+        :mcp-servers="mcpServers"
+        @toggle-tool="handleToggleTool"
+      />
+    </BottomControls>
     
     <!-- 消息输入区域 -->
     <ChatInput

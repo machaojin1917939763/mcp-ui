@@ -37,9 +37,9 @@
       </div>
     </div>
     
-    <div v-else>
+    <div v-else class="messages-container">
       <div v-for="(group, groupIndex) in messageGroups" :key="`group-${groupIndex}`" class="message-group">
-        <!-- 用户消息始终在上面 -->
+        <!-- 用户消息 -->
         <div v-if="group.user" :class="['message', 'user']">
           <div class="message-avatar">
             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -48,12 +48,12 @@
             </svg>
           </div>
           <div class="message-content">
-            <div v-html="formatMessage(group.user.content)"></div>
-            <div class="message-time">{{ new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) }}</div>
+            <div v-html="formatMessage(group.user.content)" class="message-text"></div>
+            <div class="message-time">{{ formatTime(group.user.timestamp) }}</div>
           </div>
         </div>
         
-        <!-- AI消息始终在下面，且有足够的间距 -->
+        <!-- AI消息 -->
         <div v-if="group.assistant" :class="['message', 'assistant']">
           <div class="message-avatar">
             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -63,14 +63,28 @@
             </svg>
           </div>
           <div class="message-content">
-            <div v-html="formatMessage(group.assistant.content)"></div>
+            <div v-html="processMessageContent(group.assistant.content)" class="message-text"></div>
+            
+            <!-- 工具调用组件 -->
+            <div v-if="group.assistant.toolCalls && group.assistant.toolCalls.length > 0" class="tool-calls-container">
+              <ToolCallView
+                v-for="(toolCall, index) in group.assistant.toolCalls"
+                :key="index"
+                :toolName="toolCall.name"
+                :params="toolCall.params"
+                :result="toolCall.result"
+                :error="toolCall.error"
+                :success="toolCall.success"
+              />
+            </div>
+            
             <!-- 未完成消息的生成中指示器 -->
             <div v-if="group.assistant.isComplete === false" class="generating-indicator">
               <span></span>
               <span></span>
               <span></span>
             </div>
-            <div class="message-time">{{ new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) }}</div>
+            <div class="message-time">{{ formatTime(group.assistant.timestamp) }}</div>
           </div>
         </div>
       </div>
@@ -80,7 +94,8 @@
 
 <script setup lang="ts">
 import { computed, defineProps, defineEmits } from 'vue';
-import type { ChatMessage } from '../composables';
+import type { ChatMessage, ToolCall } from '../composables';
+import ToolCallView from './ToolCallView.vue';
 
 interface MessageGroup {
   user?: ChatMessage;
@@ -112,6 +127,22 @@ const useExample = (example: string) => {
   emit('use-example', example);
 };
 
+// 处理消息内容，识别工具调用标记
+const processMessageContent = (content: string) => {
+  // 替换工具调用标记
+  const processedContent = content.replace(/<tool-call.*?\/>/g, '');
+  // 格式化剩余文本
+  return props.formatMessage(processedContent);
+};
+
+// 格式化时间显示
+const formatTime = (timestamp?: number) => {
+  if (!timestamp) {
+    return new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+  }
+  return new Date(timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+};
+
 // 计算属性：处理消息分组，确保用户消息在上，AI回复在下
 const messageGroups = computed<MessageGroup[]>(() => {
   const groups: MessageGroup[] = [];
@@ -138,7 +169,166 @@ const messageGroups = computed<MessageGroup[]>(() => {
     }
   }
   
-  // 不再反转分组数组，保持时间正序
+  // 保持时间正序
   return groups;
 });
-</script> 
+</script>
+
+<style scoped>
+.messages-container {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  padding-bottom: 10px;
+}
+
+/* 平滑滚动效果 */
+.chat-messages {
+  scroll-behavior: smooth;
+}
+
+/* 工具调用容器样式 */
+.tool-calls-container {
+  margin-top: 12px;
+  margin-bottom: 8px;
+  border-top: 1px dashed #e0e0e0;
+  padding-top: 8px;
+}
+
+/* 消息文本样式增强 */
+.message-text {
+  line-height: 1.5;
+  word-break: break-word;
+}
+
+/* 用户消息特定样式 */
+.user .message-content {
+  background: linear-gradient(135deg, #10a37f, #0d8c6f);
+  color: white;
+  border-top-right-radius: 2px;
+}
+
+/* 修改AI消息样式 */
+.assistant .message-content {
+  background-color: white;
+  border-top-left-radius: 2px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+/* 改进代码块样式 */
+.assistant .message-content :deep(pre) {
+  background-color: #f8f9fa;
+  border-radius: 6px;
+  padding: 12px;
+  overflow-x: auto;
+  margin: 12px 0;
+  position: relative;
+  border: 1px solid #eaeaea;
+}
+
+/* 代码块语言标识 */
+.assistant .message-content :deep(pre):before {
+  content: attr(data-language);
+  position: absolute;
+  top: 0;
+  right: 10px;
+  font-size: 0.75rem;
+  color: #888;
+  background: #f8f9fa;
+  padding: 0 8px;
+  border-radius: 0 0 4px 4px;
+  border: 1px solid #eaeaea;
+  border-top: none;
+}
+
+/* 代码块复制按钮 */
+.assistant .message-content :deep(.code-block-wrapper) {
+  position: relative;
+}
+
+.assistant .message-content :deep(.code-copy-button) {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: rgba(255, 255, 255, 0.8);
+  border: 1px solid #eaeaea;
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 0.75rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.assistant .message-content :deep(.code-block-wrapper:hover .code-copy-button) {
+  opacity: 1;
+}
+
+/* 时间戳样式优化 */
+.message-time {
+  font-size: 0.75rem;
+  color: rgba(0, 0, 0, 0.4);
+  margin-top: 6px;
+  text-align: right;
+}
+
+.user .message-time {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+/* 改进的加载指示器 */
+.generating-indicator {
+  display: flex;
+  gap: 4px;
+  margin-top: 10px;
+  margin-bottom: 5px;
+  align-items: center;
+  justify-content: flex-start;
+}
+
+.generating-indicator span {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: #3498db;
+  opacity: 0.7;
+  animation: bounce 1.4s infinite ease-in-out both;
+}
+
+.generating-indicator span:nth-child(1) {
+  animation-delay: -0.32s;
+}
+
+.generating-indicator span:nth-child(2) {
+  animation-delay: -0.16s;
+}
+
+@keyframes bounce {
+  0%, 80%, 100% { 
+    transform: scale(0.6);
+  }
+  40% { 
+    transform: scale(1.0);
+  }
+}
+
+/* 消息进入动画 */
+.message {
+  animation: message-appear 0.3s ease-out;
+  transform-origin: bottom;
+}
+
+@keyframes message-appear {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+</style> 

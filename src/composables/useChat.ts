@@ -25,12 +25,23 @@ function highlightCode(code: string, language?: string): string {
   return hljs.highlightAuto(code).value;
 }
 
+// 工具调用接口
+export interface ToolCall {
+  name: string;
+  params: any;
+  result?: any;
+  error?: string;
+  success: boolean;
+  timestamp: number;
+}
+
 // 消息接口
 export interface ChatMessage {
   role: 'system' | 'user' | 'assistant';
   content: string;
   timestamp?: number;
   isComplete?: boolean;
+  toolCalls?: ToolCall[]; // 添加工具调用数组
 }
 
 export function useChat() {
@@ -106,7 +117,31 @@ export function useChat() {
       };
       
       // 处理消息并获取流式响应
-      const finalResponse = await mcpClient.processStreamQuery(userMessage, handleStreamChunk);
+      let currentToolCalls: ToolCall[] = [];
+
+      // 定义工具调用处理器
+      const handleToolCall = (toolCall: { name: string; params: any; result?: any; error?: string; success: boolean }) => {
+        // 创建工具调用对象
+        const newToolCall: ToolCall = {
+          ...toolCall,
+          timestamp: Date.now()
+        };
+        
+        // 添加到当前工具调用列表
+        currentToolCalls.push(newToolCall);
+        
+        // 更新消息的工具调用列表
+        if (messages.value[assistantMessageIndex]) {
+          messages.value[assistantMessageIndex].toolCalls = [...currentToolCalls];
+        }
+      };
+      
+      // 处理消息并获取流式响应
+      const finalResponse = await mcpClient.processStreamQuery(
+        userMessage, 
+        handleStreamChunk,
+        handleToolCall
+      );
       
       // 标记消息已完成
       if (messages.value[assistantMessageIndex]) {
@@ -234,17 +269,14 @@ export function useChat() {
         // 创建包含复制按钮的代码块HTML
         const codeBlockHTML = `
           <div class="code-block-wrapper">
-            <div class="code-block-header">
-              <span class="code-language">${block.language || '代码'}</span>
-              <button class="copy-btn" onclick="window.copyCode(this)">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-                </svg>
-                <span>复制</span>
-              </button>
-            </div>
-            <pre><code class="hljs ${block.language ? `language-${block.language}` : ''}">${highlightedCode}</code></pre>
+            <pre data-language="${block.language || '代码'}"><code class="hljs ${block.language ? `language-${block.language}` : ''}">${highlightedCode}</code></pre>
+            <button class="code-copy-button" onclick="window.copyCode(this)">
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+              </svg>
+              <span>复制</span>
+            </button>
           </div>
         `;
         
