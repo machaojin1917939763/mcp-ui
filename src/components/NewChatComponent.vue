@@ -509,13 +509,13 @@ const messageGroups = computed<MessageGroup[]>(() => {
                 </svg>
                 获取最新的科技新闻
               </li>
-              <li @click="newMessage = '帮我解释什么是大模型'; sendMessage()">
+              <li @click="newMessage = '帮我解释Markdown语法，请使用表格、代码块和列表展示主要语法'; sendMessage()">
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <circle cx="12" cy="12" r="10"></circle>
                   <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
                   <line x1="12" y1="17" x2="12.01" y2="17"></line>
                 </svg>
-                帮我解释什么是大模型
+                帮我解释Markdown语法
               </li>
             </ul>
           </div>
@@ -645,4 +645,109 @@ const messageGroups = computed<MessageGroup[]>(() => {
 
 <style>
 @import '../styles/chat.css';
+@import 'highlight.js/styles/github.css'; /* 引入代码高亮样式 */
+
+/* 添加Markdown样式 */
+.message-content {
+  line-height: 1.5;
+}
+
+.message-content pre {
+  background-color: #f6f8fa;
+  border-radius: 6px;
+  padding: 16px;
+  overflow: auto;
+  margin: 10px 0;
+}
+
+.message-content code {
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+  font-size: 0.9em;
+  background-color: rgba(175, 184, 193, 0.2);
+  padding: 0.2em 0.4em;
+  border-radius: 3px;
+}
+
+.message-content pre code {
+  background-color: transparent;
+  padding: 0;
+  border-radius: 0;
+}
+
+.message-content h1,
+.message-content h2,
+.message-content h3,
+.message-content h4,
+.message-content h5,
+.message-content h6 {
+  margin-top: 16px;
+  margin-bottom: 8px;
+  font-weight: 600;
+  line-height: 1.25;
+  color: #24292f;
+}
+
+.message-content h1 { font-size: 2em; }
+.message-content h2 { font-size: 1.5em; }
+.message-content h3 { font-size: 1.25em; }
+.message-content h4 { font-size: 1em; }
+.message-content h5 { font-size: 0.875em; }
+.message-content h6 { font-size: 0.85em; }
+
+.message-content p {
+  margin-top: 0;
+  margin-bottom: 8px;
+}
+
+.message-content blockquote {
+  padding: 0 1em;
+  color: #57606a;
+  border-left: 0.25em solid #d0d7de;
+  margin: 0 0 16px 0;
+}
+
+.message-content ul,
+.message-content ol {
+  padding-left: 2em;
+  margin-top: 0;
+  margin-bottom: 16px;
+}
+
+.message-content table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 12px 0;
+  overflow: auto;
+  display: block;
+}
+
+.message-content table th,
+.message-content table td {
+  padding: 6px 13px;
+  border: 1px solid #d0d7de;
+}
+
+.message-content table tr {
+  background-color: #ffffff;
+  border-top: 1px solid #d0d7de;
+}
+
+.message-content table tr:nth-child(2n) {
+  background-color: #f6f8fa;
+}
+
+.message-content img {
+  max-width: 100%;
+  box-sizing: content-box;
+  background-color: #ffffff;
+}
+
+.message-content a {
+  color: #0969da;
+  text-decoration: none;
+}
+
+.message-content a:hover {
+  text-decoration: underline;
+}
 </style> 

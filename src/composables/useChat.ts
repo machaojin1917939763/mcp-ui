@@ -1,6 +1,36 @@
 import { ref, computed, watch } from 'vue';
 import { MCPClient } from '../utils/MCPClient';
 import type { ChatHistoryItem } from './useChatHistory';
+import { marked } from 'marked';
+import hljs from 'highlight.js';
+
+// 配置marked的渲染器
+const renderer = new marked.Renderer();
+// 配置marked 
+marked.setOptions({
+  renderer: renderer,
+  breaks: true,  // 将换行符转换为<br>
+  gfm: true,     // 启用GitHub风格的Markdown
+});
+
+// 添加代码高亮
+const markedHighlight = {
+  highlight: function(code: string, lang: string) {
+    try {
+      if (lang && hljs.getLanguage(lang)) {
+        return hljs.highlight(code, { language: lang }).value;
+      } else {
+        return hljs.highlightAuto(code).value;
+      }
+    } catch (e) {
+      console.error('代码高亮失败:', e);
+      return code;
+    }
+  }
+};
+
+// 应用marked配置
+marked.use(markedHighlight as any);
 
 export interface ChatMessage {
   role: 'user' | 'assistant' | 'system';
@@ -148,8 +178,14 @@ export function useChat() {
   
   // 格式化消息
   function formatMessage(content: string): string {
-    // 简单的文本格式化处理，将换行转换为<br>
-    return content.replace(/\n/g, '<br>');
+    try {
+      // 使用marked解析Markdown
+      return marked.parse(content) as string;
+    } catch (error) {
+      console.error('Markdown解析失败:', error);
+      // 如果解析失败，退回到简单的文本格式化
+      return content.replace(/\n/g, '<br>');
+    }
   }
   
   // 初始化MCP客户端
