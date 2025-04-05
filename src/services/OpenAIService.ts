@@ -79,6 +79,26 @@ export class LLMService {
   }
   
   /**
+   * 设置新的API密钥
+   * @param apiKey 新的API密钥
+   */
+  setApiKey(apiKey: string): void {
+    if (!apiKey) {
+      console.error('API密钥未设置');
+      return;
+    }
+    
+    // 重新创建OpenAI实例，使用新的API密钥
+    this.client = new OpenAI({
+      apiKey,
+      baseURL: this.baseURL,
+      dangerouslyAllowBrowser: true
+    });
+    
+    console.log('API密钥已更新');
+  }
+  
+  /**
    * 发送消息到LLM服务并获取回复
    * @param messages 消息历史
    * @param tools 可用工具列表
@@ -103,13 +123,20 @@ export class LLMService {
       }));
       
       // 调用Chat Completions API
-      const response = await this.client.chat.completions.create({
+      const params: OpenAI.Chat.Completions.ChatCompletionCreateParams = {
         model: this.model,
         messages,
-        tools: formattedTools,
         temperature: 0.7,
         max_tokens: 1000
-      });
+      };
+      
+      // 只有当formattedTools有值且不为空数组时才添加tools参数
+      // 特别是对DeepSeek API，空tools数组会导致400错误
+      if (formattedTools && formattedTools.length > 0) {
+        params.tools = formattedTools;
+      }
+      
+      const response = await this.client.chat.completions.create(params);
       
       // 获取响应
       const responseMessage = response.choices[0].message;
@@ -159,14 +186,21 @@ export class LLMService {
       }));
       
       // 调用Chat Completions API，启用流式响应
-      const stream = await this.client.chat.completions.create({
+      const params: OpenAI.Chat.Completions.ChatCompletionCreateParams = {
         model: this.model,
         messages,
-        tools: formattedTools,
         temperature: 0.7,
         max_tokens: 1000,
         stream: true,
-      });
+      };
+      
+      // 只有当formattedTools有值且不为空数组时才添加tools参数
+      // 特别是对DeepSeek API，空tools数组会导致400错误
+      if (formattedTools && formattedTools.length > 0) {
+        params.tools = formattedTools;
+      }
+      
+      const stream = await this.client.chat.completions.create(params);
       
       let fullResponse = '';
       let toolCallsData: any[] = [];

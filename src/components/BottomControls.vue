@@ -30,19 +30,35 @@
                 </button>
               </div>
               
-              <!-- 标准模型组 -->
-              <div class="model-group">
-                <div class="model-group-title">系统模型</div>
-                <div v-for="model in availableModels" :key="model.id" 
+              <!-- 遍历所有供应商及其模型 -->
+              <div v-for="provider in MODEL_PROVIDERS.filter((p: any) => p.id !== 'custom')" :key="provider.id" class="model-group">
+                <div class="model-group-title">{{ provider.name }}</div>
+                <div v-for="model in provider.models" :key="`${provider.id}-${model.id}`" 
                   class="model-option" 
-                  :class="{ active: isActiveModel(model.id) }"
-                  @click.stop="selectModel(model.id)">
+                  :class="{ active: providerId === provider.id && modelId === model.id }"
+                  @click.stop="selectModel(model.id, provider.id)">
                   <div class="model-id">{{ model.id }}</div>
                   <div class="model-name">{{ model.name }}</div>
-                  <div v-if="isActiveModel(model.id)" class="active-indicator">
+                  <div v-if="providerId === provider.id && modelId === model.id" class="active-indicator">
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                       <polyline points="20 6 9 17 4 12"></polyline>
                     </svg>
+                  </div>
+                </div>
+                
+                <!-- 显示用户添加的提供商特定模型 -->
+                <div v-if="providerModels && providerModels[provider.id] && providerModels[provider.id].length > 0">
+                  <div v-for="model in providerModels[provider.id]" :key="`${provider.id}-custom-${model.id}`" 
+                    class="model-option" 
+                    :class="{ active: providerId === provider.id && modelId === model.id }"
+                    @click.stop="selectModel(model.id, provider.id)">
+                    <div class="model-id">{{ model.id }} <span class="custom-label">自定义</span></div>
+                    <div class="model-name">{{ model.name }}</div>
+                    <div v-if="providerId === provider.id && modelId === model.id" class="active-indicator">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="20 6 9 17 4 12"></polyline>
+                      </svg>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -128,6 +144,14 @@ const props = defineProps({
   showModelDropdown: {
     type: Boolean,
     required: true
+  },
+  providerModels: {
+    type: Object as () => Record<string, ModelInfo[]>,
+    required: true
+  },
+  MODEL_PROVIDERS: {
+    type: Array,
+    required: true
   }
 });
 
@@ -185,8 +209,8 @@ const toggleModelDropdown = () => {
   emit('toggle-model-dropdown');
 };
 
-const selectModel = (id: string) => {
-  emit('select-model', id);
+const selectModel = (id: string, providerId?: string) => {
+  emit('select-model', id, providerId);
   emit('toggle-model-dropdown');
 };
 
@@ -376,6 +400,15 @@ const openSettings = () => {
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+
+.custom-label {
+  font-size: 0.7rem;
+  padding: 2px 5px;
+  background-color: #f0f7ff;
+  color: #1064a3;
+  border-radius: 4px;
+  margin-left: 5px;
 }
 
 .model-name {

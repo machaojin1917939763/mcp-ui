@@ -1,6 +1,6 @@
 import axios from 'axios';
 import { LLMService } from '../services/OpenAIService';
-import { getDefaultModelId, getProviderById } from '../services/ModelProviders';
+import { getDefaultModelId, getProviderById, getDefaultProviderId } from '../services/ModelProviders';
 import type { MCPServerConfig } from '../composables/useMCPSettings';
 
 // 定义STDIO服务器管理器类型
@@ -96,13 +96,36 @@ export class MCPClient {
     try {
       // 重新初始化LLM服务
       try {
-        // 获取保存的配置
-        const savedModelId = localStorage.getItem('modelId') || getDefaultModelId(this.providerId);
+        // 获取提供商ID
+        this.providerId = localStorage.getItem('providerId') || getDefaultProviderId();
+        
+        // 尝试从提供商特定API密钥中获取API密钥
+        const savedApiKeys = localStorage.getItem('providerApiKeys');
+        let newApiKey = '';
+        
+        if (savedApiKeys) {
+          const apiKeys = JSON.parse(savedApiKeys);
+          if (apiKeys[this.providerId]) {
+            newApiKey = apiKeys[this.providerId];
+          }
+        } else {
+          // 回退到全局API密钥
+          newApiKey = localStorage.getItem('apiKey') || this.apiKey;
+        }
+        
+        // 如果API密钥有变化，更新它
+        if (newApiKey && newApiKey !== this.apiKey) {
+          console.log(`在initialize中发现新的API密钥，正在更新...`);
+          // 立即使用setApiKey方法更新，确保LLMService也会更新
+          this.setApiKey(newApiKey);
+        }
+        
+        // 获取模型ID
+        let modelId = '';
         const provider = getProviderById(this.providerId);
         
         // 处理自定义服务提供商
         let baseUrl = provider?.baseUrl || '';
-        let modelId = savedModelId || '';
         
         if (this.providerId === 'custom') {
           baseUrl = localStorage.getItem('customBaseUrl') || '';
@@ -119,17 +142,20 @@ export class MCPClient {
               console.error('解析自定义模型列表失败', e);
             }
           }
+        } else {
+          // 使用标准模型ID
+          modelId = localStorage.getItem('modelId') || getDefaultModelId(this.providerId);
         }
         
         // 创建LLM服务实例
         this.llmService = new LLMService({
-          apiKey: this.apiKey,
+          apiKey: this.apiKey, // 使用更新后的API密钥
           baseUrl: baseUrl,
           model: modelId,
           providerId: this.providerId
         });
         
-        console.log(`初始化LLM服务成功 - 提供商: ${this.providerId}, 模型: ${modelId}`);
+        console.log(`初始化LLM服务成功 - 提供商: ${this.providerId}, 模型: ${modelId}, API密钥已设置`);
       } catch (error) {
         console.error('初始化LLM服务失败:', error);
       }
@@ -414,6 +440,29 @@ export class MCPClient {
   }
   
   /**
+   * 获取当前使用的提供商ID
+   */
+  getProviderId(): string {
+    return this.providerId;
+  }
+
+  /**
+   * 获取当前使用的模型ID
+   */
+  getModel(): string {
+    if (this.llmService) {
+      return this.llmService.getModel();
+    }
+    
+    // 根据提供商类型返回默认值
+    if (this.providerId === 'custom') {
+      return localStorage.getItem('customModelId') || '';
+    } else {
+      return localStorage.getItem('modelId') || getDefaultModelId(this.providerId);
+    }
+  }
+  
+  /**
    * 处理用户查询，使用LLM和可用工具
    */
   async processQuery(query: string): Promise<string> {
@@ -429,7 +478,7 @@ export class MCPClient {
         // 直接使用LLM服务
         const response = await this.llmService.sendMessage(
           this.messageHistory,
-          this.availableTools
+          this.availableTools && this.availableTools.length > 0 ? this.availableTools : undefined
         );
         
         try {
@@ -569,6 +618,9 @@ export class MCPClient {
    */
   setModel(modelId: string): void {
     try {
+      // 获取当前提供商 - 使用最新的providerId
+      this.providerId = localStorage.getItem('providerId') || 'openai';
+      
       // 获取当前提供商信息
       const provider = getProviderById(this.providerId);
       
@@ -577,6 +629,21 @@ export class MCPClient {
       
       if (this.providerId === 'custom') {
         baseUrl = localStorage.getItem('customBaseUrl') || '';
+        
+        // 保存自定义模型ID
+        localStorage.setItem('customModelId', modelId);
+      } else {
+        // 保存标准模型ID
+        localStorage.setItem('modelId', modelId);
+      }
+
+      // 更新API密钥（尝试从提供商特定API密钥中获取）
+      const savedApiKeys = localStorage.getItem('providerApiKeys');
+      if (savedApiKeys) {
+        const apiKeys = JSON.parse(savedApiKeys);
+        if (apiKeys[this.providerId]) {
+          this.apiKey = apiKeys[this.providerId];
+        }
       }
       
       // 更新LLM服务
@@ -587,7 +654,7 @@ export class MCPClient {
         providerId: this.providerId
       });
       
-      console.log(`已切换到模型: ${modelId}`);
+      console.log(`已切换到模型: ${modelId}, 提供商: ${this.providerId}`);
     } catch (error) {
       console.error('切换模型失败:', error);
       throw new Error('切换模型失败');
@@ -661,7 +728,7 @@ export class MCPClient {
         const response = await this.llmService.sendStreamMessage(
           this.messageHistory,
           safeOnChunk,
-          this.availableTools
+          this.availableTools && this.availableTools.length > 0 ? this.availableTools : undefined
         );
         
         try {
@@ -782,5 +849,21 @@ export class MCPClient {
     // TODO: 实现实际的STDIO工具调用逻辑
     // 当前版本暂不支持STDIO工具调用
     throw new Error(`目前还不支持STDIO服务器 ${server.id} 的工具调用`);
+  }
+
+  /**
+   * 设置API密钥
+   * @param apiKey 新的API密钥
+   */
+  setApiKey(apiKey: string): void {
+    if (this.apiKey !== apiKey) {
+      console.log('更新API密钥');
+      this.apiKey = apiKey;
+      
+      // 如果LLM服务存在，更新其API密钥
+      if (this.llmService) {
+        this.llmService.setApiKey(apiKey);
+      }
+    }
   }
 } 

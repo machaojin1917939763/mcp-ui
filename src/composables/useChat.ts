@@ -53,6 +53,7 @@ export function useChat() {
   
   // 通知状态
   const notification = ref('');
+  const notificationType = ref('info');
   const showNotificationFlag = ref(false);
 
   // MCP客户端实例
@@ -195,8 +196,20 @@ export function useChat() {
   }
   
   // 显示通知的函数
-  function showNotification(message: string) {
+  function showNotification(message: string, type: 'info' | 'success' | 'warning' | 'error' = 'info') {
+    // 根据消息内容自动推断类型（如果未指定）
+    if (type === 'info') {
+      if (message.includes('成功') || message.includes('已保存') || message.includes('已添加') || message.includes('已切换')) {
+        type = 'success';
+      } else if (message.includes('错误') || message.includes('失败') || message.includes('无法')) {
+        type = 'error';
+      } else if (message.includes('警告') || message.includes('注意')) {
+        type = 'warning';
+      }
+    }
+    
     notification.value = message;
+    notificationType.value = type;
     showNotificationFlag.value = true;
     
     // 3秒后自动关闭通知
@@ -308,6 +321,7 @@ export function useChat() {
     isLoading,
     showSettings,
     notification,
+    notificationType,
     showNotificationFlag,
     mcpClient,
     sendMessage,

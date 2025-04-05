@@ -34,6 +34,7 @@ const {
   isLoading,
   notification,
   showNotificationFlag,
+  notificationType,
   mcpClient,
   sendMessage: chatSendMessage,
   clearChat: chatClearChat,
@@ -71,11 +72,14 @@ const {
   effectiveModelId,
   maskedApiKey,
   currentModelDescription,
+  providerApiKeys,
+  getCurrentModelState,
   saveSettings: modelSaveSettings,
   selectModel: modelSelectModel,
   selectCustomModel: modelSelectCustomModel,
   addCustomModel: modelAddCustomModel,
-  removeCustomModel
+  removeCustomModel,
+  providerModels
 } = useModelSettings();
 
 // MCP设置
@@ -173,10 +177,50 @@ const saveSettings = () => {
   // 保存MCP服务器设置
   saveMcpServers(mcpClient);
 };
-const selectModel = (newModelId: string) => modelSelectModel(newModelId, mcpClient, showNotification);
-const selectCustomModel = (id: string) => modelSelectCustomModel(id, mcpClient, showNotification);
-const addCustomModel = () => modelAddCustomModel(showNotification);
+const selectModel = (newModelId: string) => {
+  console.log('选择模型前的状态:', getCurrentModelState());
+  modelSelectModel(newModelId, mcpClient, showNotification);
+  
+  // 检查模型选择后的状态
+  setTimeout(() => {
+    console.log('选择模型后的状态:', getCurrentModelState());
+    console.log('MCPClient状态:', {
+      providerId: mcpClient.getProviderId(),
+      model: mcpClient.getModel()
+    });
+  }, 500);
+};
+const selectCustomModel = (id: string) => {
+  console.log('选择自定义模型前的状态:', getCurrentModelState());
+  modelSelectCustomModel(id, mcpClient, showNotification);
+  
+  // 检查模型选择后的状态
+  setTimeout(() => {
+    console.log('选择自定义模型后的状态:', getCurrentModelState());
+    console.log('MCPClient状态:', {
+      providerId: mcpClient.getProviderId(),
+      model: mcpClient.getModel()
+    });
+  }, 500);
+};
+const addCustomModel = (providerId?: string) => modelAddCustomModel(showNotification, providerId);
 const addMcpServer = () => mcpAddServer(showNotification);
+const updateProviderApiKey = (apiKeyUpdate: Record<string, string>) => {
+  // 将新的API密钥合并到现有的providerApiKeys中
+  const provider = Object.keys(apiKeyUpdate)[0];
+  const value = apiKeyUpdate[provider];
+  
+  // 更新API密钥
+  providerApiKeys.value = { ...providerApiKeys.value, [provider]: value };
+  
+  // 如果是当前选中的提供商，同时更新apiKey（向后兼容）
+  if (provider === providerId.value) {
+    apiKey.value = value;
+  }
+  
+  // 自动保存到localStorage
+  localStorage.setItem('providerApiKeys', JSON.stringify(providerApiKeys.value));
+};
 const toggleMcpServerStatus = (id: string) => {
   mcpToggleServerStatus(id);
   // 更新MCP服务器配置到MCPClient
@@ -398,14 +442,14 @@ const handleRegenerateAnswer = async (groupIndex: number) => {
   // 每两条消息为一组（用户+AI），找到对应组的用户消息
   const userMessageIndex = groupIndex * 2;
   if (userMessageIndex >= messages.value.length) {
-    showNotification('无法找到要重新回答的消息');
+    showNotification('无法找到要重新回答的消息', 'warning');
     return;
   }
   
   // 获取用户问题
   const userMessage = messages.value[userMessageIndex];
   if (!userMessage || userMessage.role !== 'user') {
-    showNotification('找不到对应的用户消息');
+    showNotification('找不到对应的用户消息', 'warning');
     return;
   }
   
@@ -415,16 +459,21 @@ const handleRegenerateAnswer = async (groupIndex: number) => {
   isLoading.value = true;
   
   try {
-    // 保留用户消息，移除后续所有消息
-    messages.value = messages.value.slice(0, userMessageIndex + 1);
+    // 在用户消息之后查找AI回答的消息
+    const assistantMessageIndex = userMessageIndex + 1;
     
-    // 添加一个初始的助手消息占位符，用于流式更新
-    const assistantMessageIndex = messages.value.length;
-    messages.value.push({
-      role: 'assistant',
-      content: '',
-      isComplete: false
-    });
+    // 检查AI回答消息是否存在
+    if (assistantMessageIndex >= messages.value.length ||
+        messages.value[assistantMessageIndex].role !== 'assistant') {
+      showNotification('找不到对应的AI回答消息', 'warning');
+      isLoading.value = false;
+      return;
+    }
+    
+    // 重置现有的AI回答内容，而不是添加新消息
+    messages.value[assistantMessageIndex].content = '';
+    messages.value[assistantMessageIndex].isComplete = false;
+    messages.value[assistantMessageIndex].toolCalls = [];
     
     // 滚动到底部（确保新消息可见）
     setTimeout(() => {
@@ -489,10 +538,10 @@ const handleRegenerateAnswer = async (groupIndex: number) => {
     saveCurrentChat(messages.value);
     
     // 显示成功通知
-    showNotification('已重新生成回答');
+    showNotification('已重新生成回答', 'success');
   } catch (error) {
     console.error('重新回答时出错:', error);
-    showNotification('重新生成回答失败');
+    showNotification('重新生成回答失败', 'error');
   } finally {
     isLoading.value = false;
   }
@@ -513,6 +562,8 @@ const toggleBottomControlsPanel = (show: boolean) => {
     <NotificationBar 
       :show="showNotificationFlag" 
       :message="notification" 
+      :type="notificationType"
+      @close="showNotificationFlag = false"
     />
     
     <!-- 头部组件 -->
@@ -534,6 +585,7 @@ const toggleBottomControlsPanel = (show: boolean) => {
       :customBaseUrl="customBaseUrl"
       :customModelId="customModelId"
       :customModels="customModels"
+      :providerModels="providerModels"
       :newCustomModelId="newCustomModelId"
       :newCustomModelName="newCustomModelName"
       :newCustomModelDesc="newCustomModelDesc"
@@ -552,6 +604,7 @@ const toggleBottomControlsPanel = (show: boolean) => {
       :serverConnectionStatus="serverConnectionStatus"
       :serverTools="serverTools"
       :expandedToolServers="expandedToolServers"
+      :providerApiKeys="providerApiKeys"
       @update:showSettings="showSettings = $event"
       @update:apiKey="apiKey = $event"
       @update:providerId="providerId = $event"
@@ -568,6 +621,7 @@ const toggleBottomControlsPanel = (show: boolean) => {
       @update:newMcpServerTransport="newMcpServerTransport = $event"
       @update:newMcpServerCommand="newMcpServerCommand = $event"
       @update:expandedToolServers="expandedToolServers = $event"
+      @update:providerApiKey="updateProviderApiKey($event)"
       @update-mcp-server-args="mcpUpdateArg($event)"
       @add-mcp-server-arg="mcpAddArg"
       @remove-mcp-server-arg="mcpRemoveArg($event)"
@@ -595,14 +649,16 @@ const toggleBottomControlsPanel = (show: boolean) => {
       <transition name="slide-up">
         <BottomControls
           v-if="showBottomControlsPanel"
-          :show-settings="showSettings.value"
-          :provider-id="providerId"
-          :model-id="modelId"
-          :custom-model-id="customModelId"
-          :custom-models="customModels"
-          :available-models="availableModels"
-          :show-model-dropdown="showModelDropdown"
-          @toggle-model-dropdown="() => { showModelDropdown = !showModelDropdown }"
+          :providerId="providerId"
+          :modelId="modelId"
+          :customModelId="customModelId"
+          :customModels="customModels"
+          :availableModels="availableModels"
+          :showSettings="showSettings"
+          :showModelDropdown="showModelDropdown"
+          :providerModels="providerModels"
+          :MODEL_PROVIDERS="MODEL_PROVIDERS"
+          @toggle-model-dropdown="toggleModelDropdown"
           @select-model="selectModel"
           @select-custom-model="selectCustomModel"
           @create-new-chat="handleCreateNewChat"

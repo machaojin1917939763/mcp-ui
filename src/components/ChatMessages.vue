@@ -54,23 +54,10 @@
                 </button>
               </div>
             </div>
-            <div class="message-avatar">
-              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-                <circle cx="12" cy="7" r="4"></circle>
-              </svg>
-            </div>
           </div>
           
           <!-- AI消息 -->
           <div v-if="group.assistant" :class="['message', 'assistant']">
-            <div class="message-avatar">
-              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="12" cy="12" r="10"></circle>
-                <path d="M12 16v-4"></path>
-                <path d="M12 8h.01"></path>
-              </svg>
-            </div>
             <div class="message-content">
               <div v-html="processMessageContent(group.assistant.content)" class="message-text"></div>
               
@@ -519,18 +506,33 @@ const messageGroups = computed<MessageGroup[]>(() => {
   font-size: 15px;
 }
 
-/* 用户消息特定样式 */
+/* 用户消息 - 轻蓝色渐变（主色调） */
 .user .message-content {
-  background: linear-gradient(135deg, #10a37f, #0d8c6f);
-  color: white;
-  border-top-left-radius: 2px;
+  background: linear-gradient(135deg, #e3f2fd, #bbdefb); /* 浅蓝到更柔和的蓝 */
+  color: #1a237e; /* 深蓝色文字，保证可读性 */
+  border: 1px solid rgba(255, 255, 255, 0.5); /* 轻微白色边框增强层次 */
+}
+
+
+
+/* 通用样式优化 */
+.message-content {
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  padding: 12px 16px;
+  line-height: 1.5;
+  transition: all 0.2s ease; /* 可选：添加悬浮动画 */
+}
+
+/* 悬停效果（可选） */
+.user .message-content:hover {
+  background: linear-gradient(135deg, #d8ebff, #b3d9ff);
 }
 
 /* 修改AI消息样式 */
 .assistant .message-content {
-  background-color: white;
-  border-top-left-radius: 2px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  background-color: transparent;
+  box-shadow: none;
 }
 
 /* 改进代码块样式 */

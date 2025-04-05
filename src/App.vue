@@ -1,45 +1,98 @@
 <script setup lang="ts">
+import { ref } from 'vue';
 import NewChatComponent from './components/NewChatComponent.vue';
 import SettingsPanel from './components/SettingsPanel.vue';
-import { MCPClient } from './utils/MCPClient';
-import { useMCPSettings } from './composables/useMCPSettings';
+import BottomControls from './components/BottomControls.vue';
+import { useModelSettings } from './composables/useModelSettings';
 
-// 处理MCP服务器状态切换
-async function handleMcpServerStatusToggle(id: string) {
-  // 切换服务器状态
-  toggleMcpServerStatus(id);
-  
-  // 更新MCP客户端配置
-  mcpClient.updateMcpServers(mcpServers.value);
-}
+// 创建一个MCPClient实例和一个通知函数的模拟
+const mcpClient = {
+  setModel: (id: string) => console.log(`设置模型: ${id}`),
+  initialize: () => console.log('初始化MCPClient')
+};
+const showNotification = (message: string) => console.log(message);
 
-// 请求获取MCP服务器工具信息
-async function requestToolsInfo(serverId: string) {
-  console.log(`请求获取服务器 ${serverId} 的工具信息`);
+// 使用model设置组合式函数
+const {
+  apiKey, 
+  providerId, 
+  modelId, 
+  customBaseUrl, 
+  customModelId, 
+  customModels,
+  newCustomModelId,
+  newCustomModelName,
+  newCustomModelDesc,
+  effectiveModelId,
+  maskedApiKey,
+  currentModelDescription,
+  MODEL_PROVIDERS,
+  availableModels,
+  providerApiKeys,
+  providerModels,
+  showModelDropdown,
   
-  // 查找服务器配置
-  const server = mcpServers.value.find(s => s.id === serverId);
-  if (!server || !server.enabled) return;
-  
-  try {
-    // 通过MCP客户端更新服务器配置
-    mcpClient.updateMcpServers(mcpServers.value);
-    
-    // 尝试从MCP客户端获取此服务器的工具列表
-    const toolsList = await mcpClient.getMcpServerTools(serverId);
-    
-    // 更新显示
-    showNotification(`成功获取到服务器 ${serverId} 的工具列表`);
-  } catch (error) {
-    console.error(`获取服务器 ${serverId} 工具列表失败:`, error);
-    showNotification(`无法获取服务器 ${serverId} 的工具列表: ${(error as Error).message}`, 'error');
-  }
+  saveSettings,
+  selectModel: originalSelectModel,
+  selectCustomModel: originalSelectCustomModel,
+  addCustomModel,
+  removeCustomModel,
+  updateProviderApiKey,
+  toggleModelDropdown
+} = useModelSettings();
+
+// 显示设置
+const showSettings = ref(false);
+
+// 自定义selectModel和selectCustomModel以使用我们的mcpClient和showNotification
+const selectModel = (id: string, newProviderId?: string) => {
+  originalSelectModel(id, mcpClient, showNotification, newProviderId);
+};
+
+const selectCustomModel = (id: string) => {
+  originalSelectCustomModel(id, mcpClient, showNotification);
+};
+
+// 创建新对话
+function createNewChat() {
+  console.log("创建新对话");
 }
 </script>
 
 <template>
   <div>
     <NewChatComponent />
+    <SettingsPanel
+      :showSettings="showSettings"
+      :apiKey="apiKey"
+      :providerId="providerId"
+      :modelId="modelId"
+      :customBaseUrl="customBaseUrl"
+      :customModelId="customModelId"
+      :customModels="customModels"
+      :providerModels="providerModels"
+      :newCustomModelId="newCustomModelId"
+      :newCustomModelName="newCustomModelName"
+      :newCustomModelDesc="newCustomModelDesc"
+      :MODEL_PROVIDERS="MODEL_PROVIDERS"
+      :availableModels="availableModels"
+      :currentModelDescription="currentModelDescription"
+      :maskedApiKey="maskedApiKey"
+      :providerApiKeys="providerApiKeys"
+      @update:showSettings="showSettings = $event"
+      @update:apiKey="apiKey = $event"
+      @update:providerId="providerId = $event"
+      @update:modelId="modelId = $event"
+      @update:customBaseUrl="customBaseUrl = $event"
+      @update:customModelId="customModelId = $event"
+      @update:newCustomModelId="newCustomModelId = $event"
+      @update:newCustomModelName="newCustomModelName = $event"
+      @update:newCustomModelDesc="newCustomModelDesc = $event"
+      @save-settings="() => saveSettings(mcpClient, showNotification)"
+      @add-custom-model="() => addCustomModel(showNotification)"
+      @remove-custom-model="removeCustomModel"
+      @update:providerApiKey="updateProviderApiKey"
+    />
   </div>
 </template>
 
