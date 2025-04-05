@@ -6,7 +6,7 @@
       "@automatalabs/mcp-server-playwright"
     ],
     "description": "浏览器",
-    "lastUpdated": "2025-04-05T20:06:19.303Z"
+    "lastUpdated": "2025-04-05T20:07:09.588Z"
   },
   "item": {
     "command": "npx",
@@ -15,7 +15,7 @@
       "iterm-mcp"
     ],
     "description": "item",
-    "lastUpdated": "2025-04-05T20:06:22.712Z"
+    "lastUpdated": "2025-04-05T20:07:10.683Z"
   },
   "filesystem": {
     "command": "npx",
@@ -25,7 +25,7 @@
       "/Users/machaojin/VscodeProject/mcp/inspector-main"
     ],
     "description": "filesystem",
-    "lastUpdated": "2025-04-05T20:06:22.688Z"
+    "lastUpdated": "2025-04-05T20:07:11.444Z"
   },
   "playwright": {
     "command": "npx",
@@ -34,7 +34,7 @@
       "@automatalabs/mcp-server-playwright"
     ],
     "description": "默认Playwright客户端",
-    "lastUpdated": "2025-04-05T20:06:18.127Z"
+    "lastUpdated": "2025-04-05T20:07:12.224Z"
   },
   "weather-stdio": {
     "command": "uv",
@@ -45,6 +45,6 @@
       "weather.py"
     ],
     "description": "示例STDIO天气服务",
-    "lastUpdated": "2025-04-05T20:06:22.719Z"
+    "lastUpdated": "2025-04-05T20:07:13.080Z"
   }
 }

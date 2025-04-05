@@ -2,11 +2,15 @@
 
 基于 Model Context Protocol 的智能聊天应用，支持Web和桌面环境。
 
+![应用界面概览](./image/截屏2025-04-06%2004.07.16.png)
+
 ## 项目介绍
 
 MCP聊天应用是一个基于Vue.js构建的现代化聊天界面，支持通过Model Context Protocol (MCP)与各种服务和工具进行交互。MCP是Anthropic推出的开放协议标准，允许AI模型直接调用诸如数据库、文件系统、浏览器自动化、第三方平台等服务。
 
 本应用同时支持Web端和桌面端（基于Electron），并且集成了OpenAI和Anthropic两种主流大模型服务。
+
+![聊天功能展示](./image/截屏2025-04-06%2004.07.25.png)
 
 ## 核心功能特点
 
@@ -18,6 +22,8 @@ MCP聊天应用是一个基于Vue.js构建的现代化聊天界面，支持通�
 - **桌面应用**：提供跨平台（Windows/Mac/Linux）桌面体验
 - **浏览器自动化**：支持AI控制浏览器执行任务
 - **本地服务**：集成MCP后端服务提供强大功能
+
+![模型配置界面](./image/截屏2025-04-06%2004.07.31.png)
 
 ## 系统要求
 
@@ -49,6 +55,8 @@ VITE_MODEL_PROVIDER=openai  # 或 anthropic
 MCP_SERVER_PORT=3001        # MCP服务器端口
 ```
 
+![环境配置示例](./image/截屏2025-04-06%2004.07.34.png)
+
 ### 启动应用
 
 #### Web应用开发模式
@@ -60,6 +68,8 @@ npm run dev
 # 在另一个终端启动MCP后端服务
 npm run mcp:server
 ```
+
+![应用启动界面](./image/截屏2025-04-06%2004.07.36.png)
 
 #### 桌面应用开发模式
 
@@ -88,6 +98,8 @@ npm run electron:buildmac  # macOS
 npm run electron:buildlinux  # Linux
 ```
 
+![构建后的应用](./image/截屏2025-04-06%2004.07.45.png)
+
 ## 详细使用说明
 
 ### 配置模型设置
@@ -100,12 +112,16 @@ npm run electron:buildlinux  # Linux
    - **模型**：选择要使用的具体模型
    - **自定义模型**：添加和管理自定义模型配置
 
+![模型设置界面](./image/截屏2025-04-06%2004.07.53.png)
+
 ### 使用聊天功能
 
 - 在底部输入框中输入问题或命令
 - 点击发送按钮或按回车键发送消息
 - 使用工具功能获取实时信息或执行任务（如浏览网页、查询数据等）
 - 支持Markdown格式和代码高亮显示
+
+![聊天示例](./image/截屏2025-04-06%2004.08.00.png)
 
 ### MCP工具使用
 
@@ -117,6 +133,8 @@ npm run electron:buildlinux  # Linux
 - **文件操作**：读取和写入文件（桌面版）
 
 通过聊天界面直接请求AI使用这些工具，无需额外操作。
+
+![MCP工具演示](./image/截屏2025-04-06%2004.08.06.png)
 
 ## 项目架构
 
@@ -133,6 +151,8 @@ npm run electron:buildlinux  # Linux
 - `config/` - 应用配置文件
 - `mcp_server.js` - MCP后端服务
 - `public/` - 静态资源目录
+
+![代码结构](./image/截屏2025-04-06%2004.08.12.png)
 
 ### 关键技术栈
 
