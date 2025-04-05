@@ -113,7 +113,7 @@ const {
 
 // 添加服务器状态、工具和展开状态引用
 const serverConnectionStatus = ref<Record<string, { connected?: boolean; checking?: boolean; error?: string; lastChecked?: number; message?: string }>>({});
-const serverTools = ref<Record<string, any[]>>({});
+const serverTools = ref<Record<string, Array<{name: string, description?: string, enabled?: boolean}>>>({});
 const expandedToolServers = ref<string[]>([]);
 
 // 状态同步
@@ -492,7 +492,7 @@ const handleRegenerateAnswer = async (groupIndex: number) => {
     };
     
     // 处理消息并获取流式响应
-    let currentToolCalls: any[] = [];
+    let currentToolCalls: Array<{name: string, params: Record<string, unknown>, timestamp: number}> = [];
 
     // 定义工具调用处理器
     const handleToolCall = (toolCall: any) => {
@@ -737,4 +737,4 @@ const handleAppLoad = () => {
   transform: translateY(20px);
   opacity: 0;
 }
-</style> 
+</style>
