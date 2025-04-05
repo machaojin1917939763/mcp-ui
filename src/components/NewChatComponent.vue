@@ -286,6 +286,9 @@ const toggleModelDropdown = () => {
 // 保存点击外部关闭事件的清理函数
 let cleanupClickOutside: (() => void) | null = null;
 
+// 用于存储事件处理函数引用的变量
+let toolsUpdateHandler: EventListener;
+
 // 组件挂载时初始化MCP客户端
 onMounted(async () => {
   // 添加复制代码的功能
@@ -300,40 +303,32 @@ onMounted(async () => {
     return;
   }
   
+  // 创建事件处理函数
+  toolsUpdateHandler = ((event: CustomEvent) => {
+    const { serverId, tools } = event.detail;
+    console.log(`收到服务器 ${serverId} 工具更新事件，工具数量: ${tools.length}`);
+    serverTools.value[serverId] = tools;
+    
+    // 更新服务器状态
+    serverConnectionStatus.value[serverId] = {
+      connected: true,
+      checking: false,
+      lastChecked: Date.now(),
+      message: `成功加载了 ${tools.length} 个工具`
+    };
+  }) as EventListener;
+  
+  // 添加事件监听器
+  window.addEventListener('mcp-tools-update', toolsUpdateHandler);
+  
   try {
     // 初始化MCP客户端
     await initializeMCPClient();
     
-    // 加载当前对话（如果有）
-    if (currentChatId.value) {
-      const currentChat = chatHistoryList.value.find(chat => chat.id === currentChatId.value);
-      if (currentChat) {
-        // 加载对话消息
-        messages.value = [...currentChat.messages];
-        
-        // 同步消息到MCPClient
-        currentChat.messages.forEach(msg => {
-          if (msg.role === 'user' || msg.role === 'assistant') {
-            addMessageToHistory(msg);
-          }
-        });
-      } else {
-        // 如果找不到当前对话，创建一个新的
-        createNewChat();
-      }
-    } else if (chatHistoryList.value.length > 0) {
-      // 如果有历史对话但没有当前对话ID，加载最新的对话
-      loadChat(chatHistoryList.value[0].id);
-    }
-    
-    // 更新MCP服务器配置到MCPClient
-    saveMcpServers(mcpClient);
+    // 提前检查是否有保存的聊天历史
+    handleAppLoad();
   } catch (error) {
-    console.error('初始化MCP客户端时出错:', error);
-    messages.value.push({
-      role: 'assistant',
-      content: '初始化聊天服务失败，请检查配置或稍后重试。'
-    });
+    console.error('初始化客户端失败:', error);
   }
   
   // 确保历史面板有show类
@@ -345,8 +340,13 @@ onMounted(async () => {
 
 // 组件卸载时清理资源
 onUnmounted(() => {
-  // 清理点击外部关闭事件监听器
-  if (cleanupClickOutside) {
+  // 移除事件监听器
+  if (toolsUpdateHandler) {
+    window.removeEventListener('mcp-tools-update', toolsUpdateHandler);
+  }
+  
+  // 清除外部点击监听
+  if (typeof cleanupClickOutside === 'function') {
     cleanupClickOutside();
   }
 });
@@ -553,6 +553,36 @@ const showBottomControlsPanel = ref(false);
 // 处理底部控制栏显示/隐藏
 const toggleBottomControlsPanel = (show: boolean) => {
   showBottomControlsPanel.value = show;
+};
+
+// 处理应用加载时的初始化
+const handleAppLoad = () => {
+  // 加载当前对话（如果有）
+  if (currentChatId.value) {
+    const currentChat = chatHistoryList.value.find(chat => chat.id === currentChatId.value);
+    if (currentChat) {
+      // 加载对话消息
+      messages.value = [...currentChat.messages];
+      
+      // 同步消息到MCPClient
+      currentChat.messages.forEach(msg => {
+        if (msg.role === 'user' || msg.role === 'assistant') {
+          addMessageToHistory(msg);
+        }
+      });
+    } else {
+      // 如果找不到当前对话，创建一个新的
+      createNewChat();
+    }
+  } else if (chatHistoryList.value.length > 0) {
+    // 如果有历史对话但没有当前对话ID，加载最新的对话
+    loadChat(chatHistoryList.value[0].id);
+  }
+  
+  // 更新MCP服务器配置到MCPClient
+  if (mcpClient) {
+    saveMcpServers(mcpClient);
+  }
 };
 </script>
 

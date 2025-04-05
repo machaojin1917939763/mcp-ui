@@ -282,4 +282,14 @@ export class LLMService {
       throw new Error(errorMessage);
     }
   }
+  
+  /**
+   * 更新工具列表
+   * @param tools 新的工具列表
+   */
+  updateTools(tools: Array<{name: string, description: string, inputSchema: any}>): void {
+    console.log(`LLMService: 更新工具列表，数量 ${tools.length}`);
+    // 工具列表已经在sendMessage和sendStreamMessage中使用，不需要保存
+    // 这个方法主要是为了保持接口一致性，允许MCPClient更新工具
+  }
 } 

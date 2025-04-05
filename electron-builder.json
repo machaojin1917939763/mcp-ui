@@ -1,0 +1,32 @@
+{
+  "appId": "com.mcp.chat",
+  "productName": "MCP Chat",
+  "directories": {
+    "output": "release/"
+  },
+  "files": [
+    "dist/**/*",
+    "electron/**/*"
+  ],
+  "mac": {
+    "category": "public.app-category.utilities",
+    "icon": "public/icon.icns"
+  },
+  "win": {
+    "target": [
+      "nsis"
+    ],
+    "icon": "public/icon.ico"
+  },
+  "linux": {
+    "target": [
+      "AppImage"
+    ],
+    "category": "Utility",
+    "icon": "public/icon.png"
+  },
+  "nsis": {
+    "oneClick": false,
+    "allowToChangeInstallationDirectory": true
+  }
+} 

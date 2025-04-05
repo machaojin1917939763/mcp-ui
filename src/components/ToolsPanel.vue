@@ -101,13 +101,31 @@ const toggleToolsDropdown = () => {
   showToolsDropdown.value = !showToolsDropdown.value;
 };
 
+// 用于存储事件处理函数引用的变量
+let totalToolsUpdateHandler: EventListener;
+
 // 组件挂载和卸载时的事件监听
 onMounted(() => {
   document.addEventListener('click', handleGlobalClick);
+  
+  // 创建事件处理函数
+  totalToolsUpdateHandler = ((event: CustomEvent) => {
+    const { totalCount } = event.detail;
+    console.log(`收到工具总数更新事件，总工具数: ${totalCount}`);
+    // 此处无需更新totalToolsCount，因为它是计算属性会自动更新
+  }) as EventListener;
+  
+  // 添加事件监听器
+  window.addEventListener('mcp-total-tools-update', totalToolsUpdateHandler);
 });
 
 onUnmounted(() => {
   document.removeEventListener('click', handleGlobalClick);
+  
+  // 移除事件监听器
+  if (totalToolsUpdateHandler) {
+    window.removeEventListener('mcp-total-tools-update', totalToolsUpdateHandler);
+  }
 });
 
 // 点击外部关闭下拉框

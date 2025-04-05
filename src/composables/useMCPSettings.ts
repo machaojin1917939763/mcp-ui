@@ -1,4 +1,6 @@
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted } from 'vue';
+import MCPService from '../services/MCPService';
+import type { MCPClientConfig } from '../services/MCPService';
 
 // MCP服务器配置接口
 export interface MCPServerConfig {
@@ -13,9 +15,40 @@ export interface MCPServerConfig {
   args?: string[]; // 参数列表
 }
 
+// MCP客户端接口，用于类型声明
+interface MCPClient {
+  updateMcpServers: (servers: MCPServerConfig[]) => void;
+  connectToServer: (serverConfig: MCPServerConfig) => Promise<void>;
+  disconnectFromServer: (serverId: string) => Promise<void>;
+}
+
+// 将MCP服务器配置转换为MCP客户端配置
+function convertToClientConfig(server: MCPServerConfig): MCPClientConfig {
+  return {
+    name: server.id,
+    command: server.command || 'npx',
+    args: server.args || [],
+    description: server.description || server.name
+  };
+}
+
+// 将MCP客户端配置转换为MCP服务器配置
+function convertToServerConfig(client: MCPClientConfig, enabled: boolean = true): MCPServerConfig {
+  return {
+    id: client.name,
+    name: client.description || client.name,
+    url: '',
+    description: client.description,
+    enabled,
+    transport: 'stdio',
+    command: client.command,
+    args: client.args
+  };
+}
+
 export function useMCPSettings() {
   // MCP服务器配置
-  const mcpServers = ref<MCPServerConfig[]>(JSON.parse(localStorage.getItem('mcpServers') || '[]'));
+  const mcpServers = ref<MCPServerConfig[]>([]);
   const newMcpServerId = ref('');
   const newMcpServerName = ref('');
   const newMcpServerUrl = ref('');
@@ -24,8 +57,97 @@ export function useMCPSettings() {
   const newMcpServerCommand = ref('');
   const newMcpServerArgs = ref<string[]>([]);
   
-  // 检查现有服务器是否需要更新
-  const upgradeMcpServers = () => {
+  // 当前连接的服务器ID列表
+  const connectedServers = ref<string[]>([]);
+  // 加载状态
+  const isLoading = ref(false);
+  
+  // 从本地存储加载MCP服务器配置
+  const loadFromLocalStorage = () => {
+    const storedServers = localStorage.getItem('mcpServers');
+    if (storedServers) {
+      try {
+        mcpServers.value = JSON.parse(storedServers);
+        upgradeAndSyncMcpServers();
+      } catch (error) {
+        console.error('解析MCP服务器配置失败:', error);
+        initDefaultServers();
+      }
+    } else {
+      initDefaultServers();
+    }
+  };
+  
+  // 从MCP服务加载客户端配置并同步
+  const loadFromMCPService = async () => {
+    try {
+      isLoading.value = true;
+      const clients = await MCPService.getClients();
+      
+      // 保存现有启用状态的映射
+      const enabledMap = Object.fromEntries(
+        mcpServers.value.map(server => [server.id, server.enabled])
+      );
+      
+      // 转换为服务器配置
+      const serverConfigs: MCPServerConfig[] = clients.map(client => {
+        // 保持原有启用状态，如果不存在则默认启用
+        const enabled = enabledMap[client.name] !== undefined ? enabledMap[client.name] : true;
+        return convertToServerConfig(client, enabled);
+      });
+      
+      // 合并现有非stdio类型服务器
+      const nonStdioServers = mcpServers.value.filter(
+        server => server.transport !== 'stdio'
+      );
+      
+      // 合并结果
+      mcpServers.value = [
+        ...serverConfigs,
+        ...nonStdioServers
+      ];
+      
+      // 保存到本地
+      localStorage.setItem('mcpServers', JSON.stringify(mcpServers.value));
+    } catch (error) {
+      console.error('从MCP服务加载客户端配置失败:', error);
+    } finally {
+      isLoading.value = false;
+    }
+  };
+  
+  // 初始化默认服务器
+  const initDefaultServers = () => {
+    mcpServers.value = [
+      {
+        id: 'weather',
+        name: '天气服务示例 (SSE)',
+        url: 'http://localhost:8080',
+        description: '示例天气服务，提供天气预报和气象警报功能',
+        enabled: false,
+        transport: 'sse'
+      },
+      {
+        id: 'playwright',
+        name: 'Playwright服务 (STDIO)',
+        url: '',
+        description: 'Playwright自动化测试服务',
+        enabled: true,
+        transport: 'stdio',
+        command: 'npx',
+        args: ['-y', '@automatalabs/mcp-server-playwright']
+      }
+    ];
+    
+    // 保存到本地存储
+    localStorage.setItem('mcpServers', JSON.stringify(mcpServers.value));
+    
+    // 同步到MCP服务
+    syncToMCPService();
+  };
+  
+  // 检查现有服务器是否需要更新并同步到MCP服务
+  const upgradeAndSyncMcpServers = () => {
     let needsUpdate = false;
     
     // 添加缺失的transport属性
@@ -39,36 +161,34 @@ export function useMCPSettings() {
     if (needsUpdate) {
       localStorage.setItem('mcpServers', JSON.stringify(mcpServers.value));
     }
+    
+    // 同步到MCP服务
+    syncToMCPService();
   };
   
-  // 如果MCP服务器列表为空，添加一个默认天气服务器示例
-  if (mcpServers.value.length === 0) {
-    mcpServers.value.push({
-      id: 'weather',
-      name: '天气服务示例 (SSE)',
-      url: 'http://localhost:8080',
-      description: '示例天气服务，提供天气预报和气象警报功能',
-      enabled: false,
-      transport: 'sse'
-    });
+  // 将stdio服务器同步到MCP服务
+  const syncToMCPService = async () => {
+    // 收集所有stdio类型的服务器
+    const stdioServers = mcpServers.value.filter(
+      server => server.transport === 'stdio'
+    );
     
-    // 添加stdio示例
-    mcpServers.value.push({
-      id: 'weather-stdio',
-      name: '天气服务示例 (STDIO)',
-      url: '',
-      description: '示例STDIO天气服务',
-      enabled: false,
-      transport: 'stdio',
-      command: 'uv',
-      args: ['--directory', '/path/to/weather', 'run', 'weather.py']
-    });
-    
-    localStorage.setItem('mcpServers', JSON.stringify(mcpServers.value));
-  } else {
-    // 检查并升级现有服务器配置
-    upgradeMcpServers();
-  }
+    // 转换为客户端配置并保存到MCP服务
+    for (const server of stdioServers) {
+      try {
+        const clientConfig = convertToClientConfig(server);
+        await MCPService.addOrUpdateClient(clientConfig, server.enabled);
+      } catch (error) {
+        console.error(`同步服务器 ${server.id} 到MCP服务失败:`, error);
+      }
+    }
+  };
+  
+  // 加载所有配置
+  onMounted(() => {
+    loadFromLocalStorage();
+    loadFromMCPService();
+  });
 
   // 计算生效的MCP服务器列表
   const enabledMcpServers = computed(() => {
@@ -76,7 +196,7 @@ export function useMCPSettings() {
   });
 
   // 添加MCP服务器
-  function addMcpServer(showNotification: (message: string) => void) {
+  async function addMcpServer(showNotification: (message: string) => void) {
     if (!newMcpServerId.value.trim()) {
       showNotification('服务器ID不能为空');
       return;
@@ -114,6 +234,15 @@ export function useMCPSettings() {
     if (newMcpServerTransport.value === 'stdio') {
       newServer.command = newMcpServerCommand.value;
       newServer.args = [...newMcpServerArgs.value];
+      
+      // 同步到MCP服务
+      try {
+        await MCPService.addOrUpdateClient(convertToClientConfig(newServer), true);
+      } catch (error: any) {
+        console.error(`添加客户端 ${newServer.id} 到MCP服务失败:`, error);
+        showNotification(`添加服务器到MCP服务失败: ${error.message || '未知错误'}`);
+        return;
+      }
     }
     
     mcpServers.value.push(newServer);
@@ -153,27 +282,203 @@ export function useMCPSettings() {
   }
 
   // 切换MCP服务器状态
-  function toggleMcpServerStatus(id: string) {
+  async function toggleMcpServerStatus(id: string, mcpClient?: MCPClient) {
     const server = mcpServers.value.find(s => s.id === id);
-    if (server) {
-      server.enabled = !server.enabled;
+    if (!server) return;
+    
+    const newStatus = !server.enabled;
+    console.log(`尝试${newStatus ? '启用' : '禁用'}服务器 ${id}`);
+    
+    try {
+      // 如果是stdio类型服务器，同步状态到MCP服务
+      if (server.transport === 'stdio') {
+        if (newStatus) {
+          // 连接服务器
+          await MCPService.connectClient(id);
+          // 连接成功后再修改状态
+          server.enabled = newStatus;
+          // 更新连接状态
+          if (!connectedServers.value.includes(id)) {
+            connectedServers.value.push(id);
+          }
+        } else {
+          // 断开服务器
+          await MCPService.disconnectClient(id);
+          // 断开成功后再修改状态
+          server.enabled = newStatus;
+          // 更新连接状态
+          connectedServers.value = connectedServers.value.filter(sid => sid !== id);
+        }
+      } else {
+        // 先更新状态
+        server.enabled = newStatus;
+        
+        // 如果禁用服务器，且已连接，则断开连接
+        if (!server.enabled && connectedServers.value.includes(id) && mcpClient) {
+          mcpClient.disconnectFromServer(id)
+            .then(() => {
+              connectedServers.value = connectedServers.value.filter(sid => sid !== id);
+            })
+            .catch(error => {
+              console.error(`断开服务器 ${id} 连接失败:`, error);
+              // 即使失败也更新UI状态
+              connectedServers.value = connectedServers.value.filter(sid => sid !== id);
+            });
+        } else if (!server.enabled && connectedServers.value.includes(id)) {
+          // 没有mcpClient但需要更新连接状态
+          connectedServers.value = connectedServers.value.filter(sid => sid !== id);
+        }
+        
+        // 如果启用服务器，且未连接，则尝试连接
+        if (server.enabled && !connectedServers.value.includes(id) && mcpClient) {
+          mcpClient.connectToServer(server)
+            .then(() => {
+              connectedServers.value.push(id);
+            })
+            .catch(error => {
+              console.error(`连接到服务器 ${id} 失败:`, error);
+              // 连接失败时恢复状态
+              server.enabled = false;
+            });
+        } else if (server.enabled && !connectedServers.value.includes(id)) {
+          // 没有mcpClient但需要更新连接状态
+          connectedServers.value.push(id);
+        }
+      }
+      
+      // 保存到本地存储
       localStorage.setItem('mcpServers', JSON.stringify(mcpServers.value));
+      console.log(`服务器 ${id} 状态已更新为: ${server.enabled ? '启用' : '禁用'}`);
+    } catch (error) {
+      console.error(`切换服务器 ${id} 状态失败:`, error);
+      // 恢复状态
+      server.enabled = !newStatus;
+      // 通知用户错误
+      alert(`切换服务器 ${id} 状态失败: ${error instanceof Error ? error.message : '未知错误'}`);
     }
   }
 
   // 删除MCP服务器
-  function removeMcpServer(id: string) {
+  async function removeMcpServer(id: string, mcpClient?: MCPClient) {
+    const server = mcpServers.value.find(s => s.id === id);
+    if (!server) return;
+    
+    // 如果是stdio类型服务器，从MCP服务中删除
+    if (server.transport === 'stdio') {
+      try {
+        await MCPService.deleteClient(id);
+      } catch (error) {
+        console.error(`从MCP服务删除客户端 ${id} 失败:`, error);
+        // 继续删除本地配置
+      }
+    } else {
+      // 如果已连接，先断开连接
+      if (connectedServers.value.includes(id) && mcpClient) {
+        mcpClient.disconnectFromServer(id)
+          .then(() => {
+            connectedServers.value = connectedServers.value.filter(sid => sid !== id);
+          })
+          .catch(console.error);
+      }
+    }
+    
     mcpServers.value = mcpServers.value.filter(s => s.id !== id);
+    connectedServers.value = connectedServers.value.filter(sid => sid !== id);
     localStorage.setItem('mcpServers', JSON.stringify(mcpServers.value));
   }
 
   // 保存MCP服务器配置
-  function saveMcpServers(mcpClient: any) {
+  async function saveMcpServers(mcpClient?: MCPClient) {
     localStorage.setItem('mcpServers', JSON.stringify(mcpServers.value));
     
+    // 同步到MCP服务
+    await syncToMCPService();
+    
     // 更新MCP客户端配置
-    if (mcpClient && typeof mcpClient.updateMcpServers === 'function') {
+    if (mcpClient) {
       mcpClient.updateMcpServers(mcpServers.value);
+    }
+  }
+
+  // 连接到MCP服务器
+  async function connectToMcpServer(id: string, mcpClient?: MCPClient) {
+    const server = mcpServers.value.find(s => s.id === id);
+    if (!server || !server.enabled) return;
+    
+    if (connectedServers.value.includes(id)) {
+      console.log(`已经连接到服务器 ${id}`);
+      return;
+    }
+    
+    // 对于stdio类型服务器，使用MCPService
+    if (server.transport === 'stdio') {
+      try {
+        await MCPService.connectClient(id);
+        connectedServers.value.push(id);
+      } catch (error) {
+        console.error(`连接到服务器 ${id} 失败:`, error);
+        throw error;
+      }
+    } 
+    // 使用mcpClient接口
+    else if (mcpClient) {
+      try {
+        await mcpClient.connectToServer(server);
+        connectedServers.value.push(id);
+      } catch (error) {
+        console.error(`连接到服务器 ${id} 失败:`, error);
+        throw error;
+      }
+    }
+  }
+  
+  // 断开与MCP服务器的连接
+  async function disconnectFromMcpServer(id: string, mcpClient?: MCPClient) {
+    if (!connectedServers.value.includes(id)) return;
+    
+    const server = mcpServers.value.find(s => s.id === id);
+    
+    // 对于stdio类型服务器，使用MCPService
+    if (server && server.transport === 'stdio') {
+      try {
+        await MCPService.disconnectClient(id);
+        connectedServers.value = connectedServers.value.filter(sid => sid !== id);
+      } catch (error) {
+        console.error(`断开与服务器 ${id} 的连接失败:`, error);
+        throw error;
+      }
+    } 
+    // 使用mcpClient接口
+    else if (mcpClient) {
+      try {
+        await mcpClient.disconnectFromServer(id);
+        connectedServers.value = connectedServers.value.filter(sid => sid !== id);
+      } catch (error) {
+        console.error(`断开与服务器 ${id} 的连接失败:`, error);
+        throw error;
+      }
+    }
+  }
+  
+  // 刷新客户端配置
+  async function refreshClientConfigs() {
+    await loadFromMCPService();
+  }
+  
+  // 导出当前配置
+  function exportConfigs() {
+    return MCPService.getExportConfigUrl();
+  }
+  
+  // 导入配置
+  async function importConfigs(configs: Record<string, any>, overwrite: boolean = false) {
+    try {
+      const result = await MCPService.importConfigs(configs, overwrite);
+      await loadFromMCPService(); // 重新加载配置
+      return result;
+    } catch (error: any) {
+      console.error('导入配置失败:', error);
+      throw error;
     }
   }
 
@@ -181,6 +486,7 @@ export function useMCPSettings() {
     // MCP服务器相关
     mcpServers,
     enabledMcpServers,
+    connectedServers,
     newMcpServerId,
     newMcpServerName,
     newMcpServerUrl,
@@ -188,6 +494,7 @@ export function useMCPSettings() {
     newMcpServerTransport,
     newMcpServerCommand,
     newMcpServerArgs,
+    isLoading,
     
     // MCP服务器方法
     addMcpServer,
@@ -196,6 +503,11 @@ export function useMCPSettings() {
     saveMcpServers,
     updateMcpServerArg,
     addMcpServerArg,
-    removeMcpServerArg
+    removeMcpServerArg,
+    connectToMcpServer,
+    disconnectFromMcpServer,
+    refreshClientConfigs,
+    exportConfigs,
+    importConfigs
   };
 } 
