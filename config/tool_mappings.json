@@ -1,7 +1,4 @@
 {
-  "write_to_terminal": "item",
-  "read_terminal_output": "item",
-  "send_control_character": "item",
   "read_file": "filesystem",
   "read_multiple_files": "filesystem",
   "write_file": "filesystem",
@@ -22,5 +19,8 @@
   "browser_select_text": "chrome",
   "browser_hover": "chrome",
   "browser_hover_text": "chrome",
-  "browser_evaluate": "chrome"
+  "browser_evaluate": "chrome",
+  "write_to_terminal": "item",
+  "read_terminal_output": "item",
+  "send_control_character": "item"
 }

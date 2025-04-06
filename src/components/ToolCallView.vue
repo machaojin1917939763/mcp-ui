@@ -19,7 +19,7 @@
       </div>
       <div class="tool-call-info">
         <span class="tool-name">{{ formatToolName(toolName) }}</span>
-        <span class="tool-status">
+        <span class="tool-status" :class="{ 'success': success && hasResult, 'error': !success && hasResult, 'pending': !hasResult }">
           <template v-if="hasResult">
             {{ success ? '调用成功' : '调用失败' }}
           </template>
@@ -122,26 +122,31 @@ const formatResult = computed(() => {
 .tool-call-container {
   margin: 8px 0;
   border: 1px solid #e0e0e0;
-  border-radius: 8px;
+  border-radius: 6px;
   overflow: hidden;
-  background-color: #fafafa;
+  background-color: rgba(255, 255, 255, 0.85);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-  display: inline-block;
-  max-width: 100%;
-  margin-right: auto;
+  display: block;
+  width: 100%;
+  transition: box-shadow 0.2s ease;
+}
+
+.tool-call-container:hover {
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
 }
 
 .tool-call-header {
   display: flex;
   align-items: center;
-  padding: 8px 12px;
-  background-color: #f5f5f5;
+  padding: 10px 12px;
+  background-color: rgba(245, 245, 245, 0.85);
   cursor: pointer;
   transition: background-color 0.2s;
+  border-bottom: 1px solid transparent;
 }
 
 .tool-call-header:hover {
-  background-color: #eee;
+  background-color: rgba(238, 238, 238, 0.9);
 }
 
 .tool-call-status {
@@ -170,14 +175,26 @@ const formatResult = computed(() => {
 }
 
 .tool-name {
-  font-weight: 500;
-  font-size: 0.9rem;
+  font-weight: 600;
+  font-size: 0.95rem;
   color: #333;
 }
 
 .tool-status {
   font-size: 0.8rem;
-  color: #666;
+  margin-top: 2px;
+}
+
+.tool-status.success {
+  color: #10a37f;
+}
+
+.tool-status.error {
+  color: #e53935;
+}
+
+.tool-status.pending {
+  color: #1e88e5;
 }
 
 .tool-call-toggle svg {
@@ -210,10 +227,10 @@ const formatResult = computed(() => {
 }
 
 .code-block {
-  background-color: #f5f5f5;
+  background-color: rgba(245, 245, 245, 0.8);
   border-radius: 4px;
-  padding: 8px;
-  font-family: monospace;
+  padding: 10px 12px;
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
   font-size: 0.85rem;
   overflow-x: auto;
   white-space: pre-wrap;
@@ -221,22 +238,25 @@ const formatResult = computed(() => {
   color: #333;
   max-height: 200px;
   overflow-y: auto;
+  border: 1px solid rgba(0, 0, 0, 0.05);
 }
 
 .error-result {
   color: #e53935;
-  background-color: #ffebee;
+  background-color: rgba(255, 235, 238, 0.8);
+  border-color: rgba(229, 57, 53, 0.2);
 }
 
 .pending-result {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px;
+  padding: 10px 12px;
   font-size: 0.85rem;
   color: #1e88e5;
-  background-color: #e3f2fd;
+  background-color: rgba(227, 242, 253, 0.8);
   border-radius: 4px;
+  border: 1px solid rgba(30, 136, 229, 0.2);
 }
 
 .rotating-dot {

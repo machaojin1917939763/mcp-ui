@@ -223,8 +223,20 @@ const processMessageContent = (content: string) => {
   // 移除JSON格式的工具调用内容
   processedContent = processedContent.replace(/\{"type":"tool_calls","tool_calls":\[.*?\]\}/gs, '');
   
+  // 移除工具调用结果文本
+  processedContent = processedContent.replace(/工具 .+ 返回结果: .*$/gm, '');
+  processedContent = processedContent.replace(/工具 .+ 调用失败: .*$/gm, '');
+  
+  // 移除"已完成调用，结果是"的提示文本
+  processedContent = processedContent.replace(/工具 .+ 已完成调用，结果是：.*$/gm, '');
+  
+  // 删除可能存在的工具调用相关空行
+  processedContent = processedContent.replace(/请基于工具 .+ 的调用结果继续处理。/g, '');
+  processedContent = processedContent.replace(/请基于这个结果继续回答用户的问题.*$/gm, '');
+  
   // 清理可能出现的连续多个换行
   processedContent = processedContent.replace(/\n{3,}/g, '\n\n');
+  processedContent = processedContent.trim();
   
   // 格式化剩余文本
   return props.formatMessage(processedContent);
@@ -389,6 +401,17 @@ const completedToolCallsCount = (toolCalls: ToolCall[]): number => {
 </script>
 
 <style scoped>
+.chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  /* 添加足够的顶部内边距，为ChatHeader预留空间 */
+  padding-top: 4rem;
+}
+
 .chat-content-wrapper {
   display: flex;
   width: 100%;
@@ -539,9 +562,30 @@ const completedToolCallsCount = (toolCalls: ToolCall[]): number => {
 
 /* 消息文本样式增强 */
 .message-text {
-  line-height: 1.5;
+  line-height: 1.6;
   word-break: break-word;
   font-size: 15px;
+  margin-top: 8px;
+  padding: 5px 0;
+  min-height: 24px;
+}
+
+/* 消息组样式优化 */
+.message-group {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+}
+
+/* 消息内容容器改进 */
+.message .message-content {
+  border-radius: 12px;
+  padding: 12px 16px;
+  position: relative;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  max-width: 90%;
+  width: fit-content;
 }
 
 /* 用户消息 - 轻蓝色渐变（主色调） */
@@ -777,6 +821,9 @@ const completedToolCallsCount = (toolCalls: ToolCall[]): number => {
     width: 220px;
     min-width: 220px;
   }
+  .message .message-content {
+    max-width: 95%;
+  }
 }
 
 .history-list {
@@ -799,61 +846,43 @@ const completedToolCallsCount = (toolCalls: ToolCall[]): number => {
 
 /* 保持工具调用清晰分离 */
 .tool-calls-inline {
-  margin-bottom: 16px;
-  padding-bottom: 10px;
-  border-bottom: 1px dashed #e0e0e0;
-}
-
-/* 工具加载指示器样式 */
-.tool-loading-indicator {
-  display: flex;
-  align-items: center;
-  font-size: 0.85rem;
-  padding: 8px 12px;
-  margin-bottom: 16px;
-  color: #1e88e5;
-  background-color: #e3f2fd;
-  border-radius: 4px;
+  margin: 0 0 16px 0;
+  padding: 12px;
+  border-radius: 8px;
+  background-color: #f3f8ff;
+  border: 1px solid #d0e1fd;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-  border-left: 3px solid #1e88e5;
 }
 
-.tool-loading-indicator .status-icon {
-  margin-right: 8px;
-}
-
-.tool-loading-indicator .status-text {
-  font-weight: 500;
-}
-
-/* 工具调用状态提示样式 */
+/* 工具调用状态提示容器样式优化 */
 .tool-call-status-hint {
   display: flex;
   align-items: center;
-  gap: 6px;
-  margin: 8px 0 4px 0;
-  padding: 8px 12px;
-  background-color: #f0f7ff;
-  border-radius: 6px;
-  font-size: 13px;
-  border-left: 3px solid #4a9eff;
-  color: #356cb0;
+  font-size: 0.85rem;
+  padding: 6px 10px;
+  margin-top: 10px;
+  color: #4a6586;
+  background-color: rgba(255, 255, 255, 0.7);
+  border-radius: 4px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  border-left: 2px solid #4a6586;
 }
 
 .tool-call-status-hint.processing {
-  background-color: #fff7e6;
-  border-left-color: #ffaa2c;
-  color: #9e6419;
+  color: #1e88e5;
+  background-color: rgba(227, 242, 253, 0.7);
+  border-left-color: #1e88e5;
 }
 
 .status-icon {
   display: flex;
   align-items: center;
   justify-content: center;
+  margin-right: 8px;
 }
 
 .status-icon.completed {
-  color: #10a37f;
+  color: #4caf50;
 }
 
 .status-text {
