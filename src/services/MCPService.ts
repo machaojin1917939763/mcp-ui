@@ -62,7 +62,7 @@ export class MCPService {
    * @param baseUrl MCP后端服务的基础URL
    * @param defaultClientName 默认客户端名称
    */
-  constructor(baseUrl: string = 'http://localhost:3001', defaultClientName: string = 'playwright') {
+  constructor(baseUrl: string = 'http://localhost:3001', defaultClientName: string = '') {
     this.baseUrl = baseUrl;
     this.defaultClientName = defaultClientName;
   }
@@ -234,6 +234,7 @@ export class MCPService {
   async getTools(clientName?: string): Promise<MCPTool[]> {
     try {
       // 使用RESTful风格的客户端特定API
+      console.log(`获取客户端 ${clientName} 的工具列表`);
       if (clientName) {
         const response = await axios.get(`${this.baseUrl}/mcp/clients/${clientName}/tools`);
         // 检查响应结构
@@ -259,6 +260,8 @@ export class MCPService {
    */
   async callTool(params: MCPToolCallParams): Promise<any> {
     try {
+
+      console.log(`调用工具 ${params.name}，参数:`, params.arguments);
       const { name, arguments: args, clientName } = params;
       
       if (clientName) {
@@ -270,6 +273,7 @@ export class MCPService {
         return response.data.result;
       } else {
         // 使用全局API
+        console.log(`调用全局工具 ${params.name}，参数:`, params.arguments);
         const response = await axios.post(`${this.baseUrl}/mcp/tools/call`, {
           name,
           arguments: args,

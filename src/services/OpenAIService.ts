@@ -13,6 +13,7 @@ export class LLMService {
   private model: string;
   private baseURL: string;
   private providerId: string;
+  private tools: Array<{name: string, description: string, inputSchema: any}> = [];
   
   constructor(options?: LLMServiceOptions) {
     // 获取API密钥，优先使用传入的选项
@@ -107,9 +108,11 @@ export class LLMService {
     messages: Array<{role: 'user' | 'assistant' | 'system', content: string}>,
     tools?: Array<{name: string, description: string, inputSchema: any}>
   ): Promise<string> {
+    // 优先使用存储的工具列表，如果传入了tools参数则使用传入的
+    const toolsToUse = tools || (this.tools.length > 0 ? this.tools : undefined);
     try {
       // 准备工具定义
-      const formattedTools = tools?.map(tool => ({
+      const formattedTools = toolsToUse?.map(tool => ({
         type: 'function' as const,
         function: {
           name: tool.name,
@@ -170,9 +173,11 @@ export class LLMService {
     onChunk: (chunk: string) => void,
     tools?: Array<{name: string, description: string, inputSchema: any}>
   ): Promise<string> {
+    // 优先使用存储的工具列表，如果传入了tools参数则使用传入的
+    const toolsToUse = tools || (this.tools.length > 0 ? this.tools : undefined);
     try {
       // 准备工具定义
-      const formattedTools = tools?.map(tool => ({
+      const formattedTools = toolsToUse?.map(tool => ({
         type: 'function' as const,
         function: {
           name: tool.name,
@@ -289,7 +294,7 @@ export class LLMService {
    */
   updateTools(tools: Array<{name: string, description: string, inputSchema: any}>): void {
     console.log(`LLMService: 更新工具列表，数量 ${tools.length}`);
-    // 工具列表已经在sendMessage和sendStreamMessage中使用，不需要保存
-    // 这个方法主要是为了保持接口一致性，允许MCPClient更新工具
+    // 保存工具列表到实例变量中，以便在后续API调用中使用
+    this.tools = [...tools];
   }
-} 
+}

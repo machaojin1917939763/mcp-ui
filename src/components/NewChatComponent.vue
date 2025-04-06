@@ -563,7 +563,7 @@ const handleRegenerateAnswer = async (groupIndex: number) => {
     };
     
     // 处理消息并获取流式响应
-    let currentToolCalls: Array<{name: string, params: Record<string, unknown>, timestamp: number, success: boolean, result?: any, error?: string}> = [];
+    let currentToolCalls: import('../composables/useChat').ToolCall[] = [];
 
     // 定义工具调用处理器
     const handleToolCall = async (toolCall: any) => {
@@ -662,6 +662,12 @@ const handleRegenerateAnswer = async (groupIndex: number) => {
       content: userQuestion
     });
     
+    // 发送请求获取新的回答
+    const response = await mcpClient.processStreamQuery(
+      userQuestion,
+      handleStreamChunk,
+      handleToolCall
+    );
     
     // 标记消息已完成
     if (messages.value[assistantMessageIndex]) {

@@ -183,21 +183,6 @@ export class MCPClient {
       // 连接所有启用的服务器并加载工具
       await this.connectEnabledServers();
       
-      // 尝试加载全局MCP工具
-      try {
-        const tools = await MCPService.getTools();
-        // 合并到可用工具列表
-        if (tools && tools.length > 0) {
-          console.log(`从全局MCP服务获取了 ${tools.length} 个工具`);
-          
-          // 添加全局工具到可用工具列表
-          this.availableTools = [...this.availableTools, ...tools];
-          console.log(`添加了全局工具，当前工具总数: ${this.availableTools.length}`);
-        }
-      } catch (error) {
-        console.error('获取全局MCP工具失败:', error);
-      }
-      
       // 去重工具列表，确保没有重复工具
       this.deduplicateTools();
       
@@ -259,10 +244,6 @@ export class MCPClient {
     const totalTools = results.reduce((sum, result) => {
       return sum + (result.success ? (result as any).toolCount : 0);
     }, 0);
-    
-    console.log(`服务器连接结果 - 成功: ${succeeded.join(', ') || '无'}, 失败: ${failed.join(', ') || '无'}`);
-    console.log(`共加载了 ${totalTools} 个工具`);
-    
     // 触发全局工具更新事件
     this.dispatchTotalToolsUpdate(totalTools);
     
@@ -512,10 +493,6 @@ export class MCPClient {
    */
   async callTool(toolName: string, args: any): Promise<{result: any}> {
     try {
-      // 首先尝试使用全局MCPService调用工具
-      // 这将适用于所有工具，无需特殊处理
-      console.log(`尝试调用工具: ${toolName}`);
-      
       try {
         const result = await MCPService.callTool({
           name: toolName,
@@ -530,7 +507,7 @@ export class MCPClient {
           const serverTools = this.mcpTools[server.id] || [];
           
           // 检查工具是否存在于此服务器
-          if (serverTools.some(tool => tool.name === toolName)) {
+          if (Array.isArray(serverTools) && serverTools.some(tool => tool.name === toolName)) {
             console.log(`在服务器 ${server.id} 中找到工具 ${toolName}，尝试调用`);
             
             if (server.transport === 'sse') {
@@ -558,8 +535,6 @@ export class MCPClient {
             }
           }
         }
-        
-        // 如果所有尝试都失败，抛出原始错误
         throw error;
       }
     } catch (error) {

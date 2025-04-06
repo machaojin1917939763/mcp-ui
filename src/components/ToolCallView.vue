@@ -3,20 +3,30 @@
   <div class="tool-call-container">
     <!-- 工具调用信息 -->
     <div class="tool-call-header" @click="toggleExpanded">
-      <div class="tool-call-status" :class="{ 'success': success, 'error': !success }">
-        <svg v-if="success" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <div class="tool-call-status" :class="{ 'success': success && hasResult, 'error': !success && hasResult, 'pending': !hasResult }">
+        <svg v-if="success && hasResult" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
           <polyline points="22 4 12 14.01 9 11.01"></polyline>
         </svg>
-        <svg v-else xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <svg v-else-if="!success && hasResult" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <circle cx="12" cy="12" r="10"></circle>
           <line x1="12" y1="8" x2="12" y2="12"></line>
           <line x1="12" y1="16" x2="12.01" y2="16"></line>
         </svg>
+        <svg v-else xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="rotating">
+          <path d="M21 12a9 9 0 1 1-6.219-8.56"></path>
+        </svg>
       </div>
       <div class="tool-call-info">
         <span class="tool-name">{{ formatToolName(toolName) }}</span>
-        <span class="tool-status">{{ success ? '调用成功' : '调用失败' }}</span>
+        <span class="tool-status">
+          <template v-if="hasResult">
+            {{ success ? '调用成功' : '调用失败' }}
+          </template>
+          <template v-else>
+            正在调用中...
+          </template>
+        </span>
       </div>
       <div class="tool-call-toggle">
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" :class="{ 'expanded': expanded }">
@@ -34,9 +44,16 @@
       </div>
       
       <!-- 调用结果 -->
-      <div class="tool-call-section">
+      <div class="tool-call-section" v-if="hasResult">
         <div class="section-title">调用结果</div>
         <pre class="code-block" :class="{ 'error-result': !success }">{{ formatResult }}</pre>
+      </div>
+      <div class="tool-call-section" v-else>
+        <div class="section-title">调用状态</div>
+        <div class="pending-result">
+          <span class="rotating-dot"></span>
+          <span>正在等待结果...</span>
+        </div>
       </div>
     </div>
   </div>
@@ -57,6 +74,11 @@ const props = defineProps<ToolCallProps>();
 
 // 控制详情面板的展开状态
 const expanded = ref(false);
+
+// 计算属性：是否已有结果
+const hasResult = computed(() => {
+  return props.result !== undefined || props.error !== undefined;
+});
 
 // 切换展开状态
 const toggleExpanded = () => {
@@ -137,6 +159,10 @@ const formatResult = computed(() => {
   color: #e53935;
 }
 
+.tool-call-status.pending {
+  color: #1e88e5;
+}
+
 .tool-call-info {
   flex-grow: 1;
   display: flex;
@@ -200,5 +226,46 @@ const formatResult = computed(() => {
 .error-result {
   color: #e53935;
   background-color: #ffebee;
+}
+
+.pending-result {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  font-size: 0.85rem;
+  color: #1e88e5;
+  background-color: #e3f2fd;
+  border-radius: 4px;
+}
+
+.rotating-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background-color: #1e88e5;
+  animation: pulse 1.5s infinite ease-in-out;
+}
+
+.rotating {
+  animation: rotate 1.5s linear infinite;
+}
+
+@keyframes rotate {
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 0.5;
+    transform: scale(0.8);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.2);
+  }
 }
 </style> 

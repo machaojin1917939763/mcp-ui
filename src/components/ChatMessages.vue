@@ -59,9 +59,7 @@
           <!-- AI消息 -->
           <div v-if="group.assistant" :class="['message', 'assistant']">
             <div class="message-content">
-              <div v-html="processMessageContent(group.assistant.content)" class="message-text"></div>
-              
-              <!-- 工具调用组件 - 内联到消息中 -->
+              <!-- 工具调用组件 - 只在实际有工具调用时才显示 -->
               <div v-if="group.assistant.toolCalls && group.assistant.toolCalls.length > 0" class="tool-calls-inline">
                 <ToolCallView
                   v-for="(toolCall, index) in group.assistant.toolCalls"
@@ -73,15 +71,15 @@
                   :success="toolCall.success"
                 />
                 
-                <!-- 工具调用完成状态提示 -->
-                <div class="tool-call-status-hint" v-if="group.assistant.isComplete">
+                <!-- 工具调用状态提示 -->
+                <div class="tool-call-status-hint" v-if="allToolCallsCompleted(group.assistant.toolCalls)">
                   <span class="status-icon completed">
                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                       <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
                       <polyline points="22 4 12 14.01 9 11.01"></polyline>
                     </svg>
                   </span>
-                  <span class="status-text">已完成所有处理</span>
+                  <span class="status-text">{{ group.assistant.toolCalls.length }} 个工具调用已完成</span>
                 </div>
                 <div class="tool-call-status-hint processing" v-else>
                   <span class="status-icon">
@@ -89,9 +87,11 @@
                       <path d="M21 12a9 9 0 1 1-6.219-8.56"></path>
                     </svg>
                   </span>
-                  <span class="status-text">正在处理工具结果...</span>
+                  <span class="status-text">已完成 {{ completedToolCallsCount(group.assistant.toolCalls) }}/{{ group.assistant.toolCalls.length }} 个工具调用</span>
                 </div>
               </div>
+              
+              <div v-html="processMessageContent(group.assistant.content)" class="message-text"></div>
               
               <!-- 未完成消息的生成中指示器 -->
               <div v-if="group.assistant.isComplete === false" class="generating-indicator">
@@ -376,6 +376,16 @@ const messageGroups = computed<MessageGroup[]>(() => {
   // 保持时间正序
   return groups;
 });
+
+// 辅助函数：检查所有工具调用是否完成
+const allToolCallsCompleted = (toolCalls: ToolCall[]): boolean => {
+  return toolCalls.every(call => call.result !== undefined || call.error !== undefined);
+};
+
+// 辅助函数：计算已完成工具调用的数量
+const completedToolCallsCount = (toolCalls: ToolCall[]): number => {
+  return toolCalls.filter(call => call.result !== undefined || call.error !== undefined).length;
+};
 </script>
 
 <style scoped>
@@ -787,12 +797,33 @@ const messageGroups = computed<MessageGroup[]>(() => {
 }
 */
 
-/* 工具调用内联样式 */
+/* 保持工具调用清晰分离 */
 .tool-calls-inline {
-  margin: 10px 0;
+  margin-bottom: 16px;
+  padding-bottom: 10px;
+  border-bottom: 1px dashed #e0e0e0;
+}
+
+/* 工具加载指示器样式 */
+.tool-loading-indicator {
   display: flex;
-  flex-direction: column;
-  width: 100%;
+  align-items: center;
+  font-size: 0.85rem;
+  padding: 8px 12px;
+  margin-bottom: 16px;
+  color: #1e88e5;
+  background-color: #e3f2fd;
+  border-radius: 4px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  border-left: 3px solid #1e88e5;
+}
+
+.tool-loading-indicator .status-icon {
+  margin-right: 8px;
+}
+
+.tool-loading-indicator .status-text {
+  font-weight: 500;
 }
 
 /* 工具调用状态提示样式 */

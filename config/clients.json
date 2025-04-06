@@ -6,7 +6,7 @@
       "iterm-mcp"
     ],
     "description": "item",
-    "lastUpdated": "2025-04-06T11:19:18.784Z"
+    "lastUpdated": "2025-04-06T13:29:49.896Z"
   },
   "filesystem": {
     "command": "npx",
@@ -16,7 +16,7 @@
       "/Users/machaojin/VscodeProject/mcp/inspector-main"
     ],
     "description": "filesystem",
-    "lastUpdated": "2025-04-06T11:19:23.780Z"
+    "lastUpdated": "2025-04-06T13:29:50.640Z"
   },
   "chrome": {
     "command": "npx",
@@ -25,6 +25,6 @@
       "@automatalabs/mcp-server-playwright"
     ],
     "description": "浏览器",
-    "lastUpdated": "2025-04-06T11:19:24.429Z"
+    "lastUpdated": "2025-04-06T13:29:51.781Z"
   }
 }
