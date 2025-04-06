@@ -84,6 +84,21 @@ export class MCPService {
   }
 
   /**
+   * 获取与特定服务器关联的客户端列表
+   * @param serverId 服务器ID
+   * @returns 相关客户端列表
+   */
+  async getClientsByServer(serverId: string): Promise<MCPClientConfig[]> {
+    try {
+      const response = await axios.get(`${this.baseUrl}/mcp/clients/by-server/${serverId}`);
+      return response.data.clients;
+    } catch (error) {
+      console.error(`获取服务器 ${serverId} 的MCP客户端列表失败:`, error);
+      throw error;
+    }
+  }
+
+  /**
    * 获取特定客户端的详细信息
    * @param clientName 客户端名称
    * @returns 客户端详细信息
@@ -221,25 +236,15 @@ export class MCPService {
       // 使用RESTful风格的客户端特定API
       if (clientName) {
         const response = await axios.get(`${this.baseUrl}/mcp/clients/${clientName}/tools`);
-        // 检查嵌套结构，有些后端可能会返回 { tools: [...] } 格式
-        const toolsData = response.data.tools;
-        if (toolsData && typeof toolsData === 'object' && Array.isArray(toolsData.tools)) {
-          // 处理嵌套的工具数组
-          return toolsData.tools;
-        }
-        return toolsData || [];
+        // 检查响应结构
+        return response.data.tools || [];
       } else {
         // 使用向后兼容的API
         const response = await axios.get(`${this.baseUrl}/mcp/tools`, {
           params: { client: this.defaultClientName }
         });
-        // 检查嵌套结构
-        const toolsData = response.data.tools;
-        if (toolsData && typeof toolsData === 'object' && Array.isArray(toolsData.tools)) {
-          // 处理嵌套的工具数组
-          return toolsData.tools;
-        }
-        return toolsData || [];
+        // 检查响应结构
+        return response.data.tools || [];
       }
     } catch (error) {
       console.error(`获取${clientName ? `客户端 ${clientName} 的` : ''}MCP工具列表失败:`, error);
@@ -254,25 +259,26 @@ export class MCPService {
    */
   async callTool(params: MCPToolCallParams): Promise<any> {
     try {
-      if (params.clientName) {
-        // 使用RESTful风格的客户端特定API
-        const { name, arguments: args } = params;
-        const response = await axios.post(`${this.baseUrl}/mcp/clients/${params.clientName}/tools/call`, {
+      const { name, arguments: args, clientName } = params;
+      
+      if (clientName) {
+        // 使用客户端特定API
+        const response = await axios.post(`${this.baseUrl}/mcp/clients/${clientName}/tools/call`, {
           name,
           arguments: args
         });
         return response.data.result;
       } else {
-        // 使用向后兼容的API
+        // 使用全局API
         const response = await axios.post(`${this.baseUrl}/mcp/tools/call`, {
-          name: params.name,
-          arguments: params.arguments,
+          name,
+          arguments: args,
           clientName: this.defaultClientName
         });
         return response.data.result;
       }
     } catch (error) {
-      console.error(`调用${params.clientName ? `客户端 ${params.clientName} 的` : ''}MCP工具 ${params.name} 失败:`, error);
+      console.error(`调用MCP工具 ${params.name} 失败:`, error);
       throw error;
     }
   }
@@ -289,26 +295,18 @@ export class MCPService {
       if (clientName) {
         // 使用RESTful风格的客户端特定API
         const response = await axios.get(`${this.baseUrl}/mcp/clients/${clientName}/resources`);
-        // 检查嵌套结构
-        const resourcesData = response.data.resources;
-        if (resourcesData && typeof resourcesData === 'object' && Array.isArray(resourcesData.resources)) {
-          return resourcesData.resources;
-        }
-        return resourcesData || [];
+        // 检查响应结构
+        return response.data.resources || [];
       } else {
         // 使用向后兼容的API
         const response = await axios.get(`${this.baseUrl}/mcp/resources`, {
           params: { client: this.defaultClientName }
         });
-        // 检查嵌套结构
-        const resourcesData = response.data.resources;
-        if (resourcesData && typeof resourcesData === 'object' && Array.isArray(resourcesData.resources)) {
-          return resourcesData.resources;
-        }
-        return resourcesData || [];
+        // 检查响应结构
+        return response.data.resources || [];
       }
     } catch (error) {
-      console.error(`获取${clientName ? `客户端 ${clientName} 的` : ''}MCP资源列表失败:`, error);
+      console.error(`获取MCP资源列表失败:`, error);
       throw error;
     }
   }
@@ -325,47 +323,37 @@ export class MCPService {
       if (clientName) {
         // 使用RESTful风格的客户端特定API
         const response = await axios.get(`${this.baseUrl}/mcp/clients/${clientName}/prompts`);
-        // 检查嵌套结构
-        const promptsData = response.data.prompts;
-        if (promptsData && typeof promptsData === 'object' && Array.isArray(promptsData.prompts)) {
-          return promptsData.prompts;
-        }
-        return promptsData || [];
+        // 检查响应结构
+        return response.data.prompts || [];
       } else {
         // 使用向后兼容的API
         const response = await axios.get(`${this.baseUrl}/mcp/prompts`, {
           params: { client: this.defaultClientName }
         });
-        // 检查嵌套结构
-        const promptsData = response.data.prompts;
-        if (promptsData && typeof promptsData === 'object' && Array.isArray(promptsData.prompts)) {
-          return promptsData.prompts;
-        }
-        return promptsData || [];
+        // 检查响应结构
+        return response.data.prompts || [];
       }
     } catch (error) {
-      console.error(`获取${clientName ? `客户端 ${clientName} 的` : ''}MCP提示列表失败:`, error);
+      console.error(`获取MCP提示列表失败:`, error);
       throw error;
     }
   }
 
+
   /**
-   * 浏览器导航到指定URL
-   * @param url 要导航到的URL
-   * @param clientName 客户端名称（可选，默认使用playwright客户端）
-   * @returns 导航结果
+   * 设置默认客户端名称
+   * @param clientName 客户端名称
    */
-  async browserNavigate(url: string, clientName?: string): Promise<any> {
-    try {
-      return await this.callTool({
-        name: 'browser_navigate',
-        arguments: { url },
-        clientName: clientName || 'playwright'
-      });
-    } catch (error) {
-      console.error(`浏览器导航到 ${url} 失败:`, error);
-      throw error;
-    }
+  setDefaultClientName(clientName: string): void {
+    this.defaultClientName = clientName;
+  }
+
+  /**
+   * 获取默认客户端名称
+   * @returns 默认客户端名称
+   */
+  getDefaultClientName(): string {
+    return this.defaultClientName;
   }
 }
 

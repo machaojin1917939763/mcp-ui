@@ -14,7 +14,11 @@ interface StdioManager {
 interface Tool {
   name: string;
   description: string;
-  inputSchema: any;
+  inputSchema: {
+    type: string;
+    properties: Record<string, any>;
+    required?: string[];
+  };
 }
 
 interface Message {
@@ -31,7 +35,6 @@ export class MCPClient {
   private messageHistory: Message[] = [];
   private mcpServers: MCPServerConfig[] = [];
   private mcpTools: Record<string, Tool[]> = {}; // 每个MCP服务器的工具列表
-  private stdioManagers: Record<string, StdioManager> = {}; // STDIO服务器管理器
   
   constructor() {
     // 从环境变量、localStorage和默认值获取配置
@@ -94,6 +97,7 @@ export class MCPClient {
    * 初始化MCP客户端，连接到服务端并获取可用工具
    */
   async initialize(): Promise<void> {
+    console.log('初始化MCP客户端...');
     try {
       // 重新初始化LLM服务
       try {
@@ -173,50 +177,31 @@ export class MCPClient {
       }
       
       // 初始化工具数据结构，但不加载具体工具（只清空和准备）
-      await this.initializeMcpTools();
+      this.mcpTools = {};
+      this.availableTools = [];
       
       // 连接所有启用的服务器并加载工具
-      // 这个过程中会为每个服务器获取工具并更新到availableTools
       await this.connectEnabledServers();
-      
-      // 用于跟踪全局工具的工具跟踪器
-      const globalToolTracker = new Set<string>();
-      
-      // 跟踪已添加工具的基本名称
-      this.availableTools.forEach(tool => {
-        globalToolTracker.add(this.getToolBaseName(tool.name));
-      });
       
       // 尝试加载全局MCP工具
       try {
         const tools = await MCPService.getTools();
-        // 合并到可用工具列表，避免重复
+        // 合并到可用工具列表
         if (tools && tools.length > 0) {
-          console.log(`从全局MCP服务获取了 ${tools.length} 个工具，开始去重...`);
+          console.log(`从全局MCP服务获取了 ${tools.length} 个工具`);
           
-          // 为全局工具创建一个假的服务器配置
-          const globalServer: MCPServerConfig = {
-            id: 'global',
-            name: '全局工具',
-            url: '',
-            description: '全局可用工具',
-            enabled: true,
-            transport: 'stdio'
-          };
-          
-          // 使用去重逻辑添加全局工具
-          this.addToolsWithPrefixAndDeduplication(tools, globalServer, globalToolTracker);
+          // 添加全局工具到可用工具列表
+          this.availableTools = [...this.availableTools, ...tools];
           console.log(`添加了全局工具，当前工具总数: ${this.availableTools.length}`);
         }
       } catch (error) {
         console.error('获取全局MCP工具失败:', error);
       }
       
-      // 最后执行一次全局工具去重，确保没有重复工具
-      // 但不会去除不同服务器的同名工具
+      // 去重工具列表，确保没有重复工具
       this.deduplicateTools();
       
-      // 再次更新LLM服务中的工具列表，确保所有工具都可用
+      // 更新LLM服务中的工具列表，确保所有工具都可用
       if (this.llmService && this.availableTools.length > 0) {
         console.log(`最终更新LLM服务工具列表，工具数量: ${this.availableTools.length}`);
         this.llmService.updateTools(this.availableTools);
@@ -328,160 +313,6 @@ export class MCPClient {
   }
   
   /**
-   * 初始化所有启用的MCP服务器的工具
-   */
-  private async initializeMcpTools(): Promise<void> {
-    // 清空工具列表
-    this.mcpTools = {};
-    this.availableTools = [];
-    
-    // 获取所有启用的MCP服务器
-    const enabledServers = this.mcpServers.filter(server => server.enabled);
-    
-    // 用于跟踪已添加的工具，避免重复
-    const toolTracker = new Set<string>();
-    
-    console.log(`初始化MCP工具：将从 ${enabledServers.length} 个启用的服务器加载工具`);
-    
-    // 注意：连接全部服务器会在connectEnabledServers中完成，这里只进行初始化
-    console.log(`已完成MCP工具初始化`);
-  }
-  
-  /**
-   * 使用前缀添加工具并避免重复
-   * @param tools 工具列表
-   * @param server 服务器配置
-   * @param toolTracker 已添加工具的跟踪器
-   */
-  private addToolsWithPrefixAndDeduplication(tools: Tool[], server: MCPServerConfig, toolTracker: Set<string>): void {
-    if (!tools || !tools.length) return;
-    
-    // 1. 先生成一个基本名称到完整工具的映射
-    const toolMap = new Map<string, Tool>();
-    
-    for (const tool of tools) {
-      const baseName = this.getToolBaseName(tool.name);
-      
-      // 使用基本名称作为键，如果已存在则跳过（保留第一个工具）
-      if (!toolMap.has(baseName)) {
-        toolMap.set(baseName, tool);
-      }
-    }
-    
-    // 2. 为每个唯一的工具添加前缀
-    toolMap.forEach((tool, baseName) => {
-      // 创建带前缀的名称，使用单下划线作为分隔符
-      // 因为服务器ID不允许包含下划线，所以这种方式是安全的
-      const prefixedName = `${server.id}_${tool.name}`;
-      
-      // 检查此工具是否已经添加（检查基本名称和带前缀的名称）
-      if (!toolTracker.has(prefixedName) && !toolTracker.has(baseName)) {
-        // 对于全局工具，也要添加一个不带前缀的版本以保持向后兼容
-        if (server.id === 'global') {
-          // 添加不带前缀的全局工具
-          this.availableTools.push({
-            ...tool,
-            name: tool.name,  // 保持原始名称
-            description: tool.description // 保持原始描述
-          });
-          
-          console.log(`添加全局工具（原名）: ${tool.name}`);
-          toolTracker.add(tool.name);
-        }
-        
-        // 添加带前缀的工具
-        this.availableTools.push({
-          ...tool,
-          name: prefixedName,
-          description: `[${server.name}] ${tool.description}`
-        });
-        
-        // 记录已添加的工具
-        toolTracker.add(prefixedName);
-        toolTracker.add(baseName);
-        
-        console.log(`添加工具: ${prefixedName}`);
-      } else {
-        console.log(`跳过重复工具: ${prefixedName}`);
-      }
-    });
-  }
-  
-  /**
-   * 获取工具的基本名称（去掉前缀）
-   * @param toolName 工具名称
-   * @returns 基本名称
-   */
-  private getToolBaseName(toolName: string): string {
-    // 首先检查是否是浏览器工具
-    if (this.isBrowserTool(toolName)) {
-      return this.normalizeBrowserToolName(toolName);
-    }
-    
-    // 检查是否有serverId前缀（使用正则表达式匹配serverId_toolName格式）
-    const prefixMatch = /^([a-zA-Z0-9-]+)_(.+)$/.exec(toolName);
-    if (prefixMatch) {
-      // 提取真正的工具名
-      const actualName = prefixMatch[2];
-      return actualName;
-    }
-    
-    // 没有特殊前缀，返回原名称
-    return toolName;
-  }
-  
-  /**
-   * 检查工具是否是浏览器相关工具
-   * @param toolName 工具名称
-   * @returns 是否是浏览器工具
-   */
-  private isBrowserTool(toolName: string): boolean {
-    const browserPrefixes = [
-      'browser_', 
-      'playwright_browser_', 
-      'chrome_browser_',
-      'playwright_',
-      'chrome_'
-    ];
-    
-    for (const prefix of browserPrefixes) {
-      if (toolName.startsWith(prefix)) {
-        return true;
-      }
-    }
-    
-    return false;
-  }
-  
-  /**
-   * 规范化浏览器工具名称
-   * @param toolName 工具名称
-   * @returns 规范化后的工具名称
-   */
-  private normalizeBrowserToolName(toolName: string): string {
-    // 常见的前缀模式，例如 'browser_', 'playwright_browser_', 'chrome_browser_' 等
-    const prefixPatterns = [
-      /^playwright_browser_/,   // 匹配 playwright_browser_
-      /^chrome_browser_/,       // 匹配 chrome_browser_
-      /^playwright_/,           // 匹配 playwright_
-      /^chrome_/,               // 匹配 chrome_
-      /^browser_/               // 匹配 browser_
-    ];
-    
-    // 尝试匹配并去除前缀
-    for (const pattern of prefixPatterns) {
-      if (pattern.test(toolName)) {
-        // 浏览器工具统一使用 browser_ 前缀
-        const normalized = toolName.replace(pattern, '');
-        return 'browser_' + normalized;
-      }
-    }
-    
-    // 无法识别的格式，返回原名称
-    return toolName;
-  }
-  
-  /**
    * 获取特定MCP服务器的工具列表
    * @param serverId 服务器ID
    */
@@ -493,12 +324,6 @@ export class MCPClient {
     }
 
     try {
-      // 用于去重
-      const toolTracker = new Set<string>();
-      
-      // 创建匹配该服务器前缀的正则表达式
-      const prefixRegex = new RegExp(`^${serverId}_`);
-      
       // 根据服务器类型获取工具
       if (server.transport === 'sse') {
         // 从HTTP服务器获取工具
@@ -508,40 +333,45 @@ export class MCPClient {
           }
         });
         
-        const tools = response.data?.tools || [];
+        let tools = response.data?.tools || [];
+        
+        // 转换工具格式
+        tools = tools.map((tool:any) => ({
+          name: tool.name,
+          description: tool.description,
+          inputSchema: {
+            type: 'object',
+            properties: tool.inputSchema?.properties || {},
+            required: tool.inputSchema?.required || []
+          }
+        }));
         
         // 更新工具缓存
         this.mcpTools[server.id] = tools;
         
-        // 更新可用工具列表，先移除旧的同服务器工具
-        this.availableTools = this.availableTools.filter(tool => !prefixRegex.test(tool.name));
-        
-        // 添加新工具，使用去重逻辑
-        this.addToolsWithPrefixAndDeduplication(tools, server, toolTracker);
-        
-        // 执行最终去重
-        this.deduplicateTools();
+        // 更新可用工具列表，保留原始工具名称
+        this.availableTools = [...this.availableTools, ...tools];
+
+        console.log(`可用工具列表更新，当前工具总数: ${this.availableTools.length}`);
         
         console.log(`从服务器 ${server.name} 获取了 ${tools.length} 个工具`);
         return tools;
       } else if (server.transport === 'stdio') {
         // 使用MCPService获取工具
         const tools = await MCPService.getTools(server.id);
-        
         // 更新工具缓存
         this.mcpTools[server.id] = tools || [];
+      
+
+        // 更新可用工具列表，保留原始工具名称
+        if (tools && tools.tools.length > 0) {
+          this.availableTools = [...this.availableTools, ...tools.tools];
+          console.log(`更新后可用工具总数: ${this.availableTools.length}`);
+        } else {
+          console.log(`服务器 ${server.name} 没有返回任何工具`);
+        }
         
-        // 更新可用工具列表，先移除旧的同服务器工具
-        this.availableTools = this.availableTools.filter(tool => !prefixRegex.test(tool.name));
-        
-        // 添加新工具，使用去重逻辑
-        this.addToolsWithPrefixAndDeduplication(tools || [], server, toolTracker);
-        
-        // 执行最终去重
-        this.deduplicateTools();
-        
-        console.log(`从服务器 ${server.name} 获取了 ${tools?.length || 0} 个工具`);
-        return tools || [];
+        return tools.tools;
       } else {
         throw new Error(`不支持的服务器传输类型: ${server.transport}`);
       }
@@ -551,23 +381,6 @@ export class MCPClient {
     }
   }
 
-  /**
-   * 初始化STDIO服务器并获取工具列表
-   * @param server STDIO服务器配置
-   * @returns 工具列表
-   */
-  private async initializeStdioServer(server: MCPServerConfig): Promise<Tool[]> {
-    // 使用MCPService连接到客户端并获取工具
-    try {
-      // 检查服务器是否已连接
-      await MCPService.connectClient(server.id);
-      const tools = await MCPService.getTools(server.id);
-      return tools || [];
-    } catch (error) {
-      console.error(`初始化STDIO服务器 ${server.id} 失败:`, error);
-      throw error;
-    }
-  }
   
   /**
    * 获取当前使用的提供商ID
@@ -699,96 +512,55 @@ export class MCPClient {
    */
   async callTool(toolName: string, args: any): Promise<{result: any}> {
     try {
-      // 特殊处理浏览器工具（以browser_开头的工具）
-      if (toolName.startsWith('browser_')) {
-        try {
-          console.log(`调用浏览器工具: ${toolName}`);
-          const result = await MCPService.callTool({
-            name: toolName,
-            arguments: args,
-            // 使用全局服务或playwright服务客户端
-            clientName: 'playwright'
-          });
-          return { result };
-        } catch (error) {
-          console.error(`调用浏览器工具 ${toolName} 失败:`, error);
-          throw new Error(`调用浏览器工具 ${toolName} 失败: ${(error as Error).message}`);
-        }
-      }
+      // 首先尝试使用全局MCPService调用工具
+      // 这将适用于所有工具，无需特殊处理
+      console.log(`尝试调用工具: ${toolName}`);
       
-      // 判断工具名称是否有前缀（serverId_）
-      // 使用更安全的方式，检查是否匹配"前缀_"的模式，而不是简单地分割
-      const prefixMatch = /^([a-zA-Z0-9-]+)_(.+)$/.exec(toolName);
-      
-      if (prefixMatch) {
-        // 获取serverId和实际工具名
-        const [, serverId, actualToolName] = prefixMatch;
+      try {
+        const result = await MCPService.callTool({
+          name: toolName,
+          arguments: args
+        });
+        return { result };
+      } catch (error) {
+        console.error(`使用全局MCPService调用工具 ${toolName} 失败:`, error);
         
-        // 检查是否为全局工具（带global前缀）
-        if (serverId === 'global') {
-          try {
-            console.log(`调用带global前缀的全局工具: ${actualToolName}`);
-            const result = await MCPService.callTool({
-              name: actualToolName,
-              arguments: args
-            });
-            return { result };
-          } catch (error) {
-            console.error(`调用全局工具 ${actualToolName} 失败:`, error);
-            throw new Error(`调用全局工具 ${actualToolName} 失败: ${(error as Error).message}`);
-          }
-        }
-        
-        // 找到对应的服务器
-        const server = this.mcpServers.find(s => s.id === serverId && s.enabled);
-        if (!server) {
-          throw new Error(`找不到服务器 ${serverId} 或服务器未启用`);
-        }
-        
-        // 根据服务器类型调用工具
-        if (server.transport === 'sse') {
-          // 发送HTTP请求
-          const response = await axios.post(
-            `${server.url}/tools/${actualToolName}`,
-            args,
-            {
-              headers: {
-                'Authorization': `Bearer ${this.apiKey}`,
-                'Content-Type': 'application/json'
-              }
-            }
-          );
+        // 尝试在各个服务器中查找此工具并调用
+        for (const server of this.mcpServers.filter(s => s.enabled)) {
+          const serverTools = this.mcpTools[server.id] || [];
           
-          return { result: response.data };
-        } else if (server.transport === 'stdio') {
-          // 使用MCPService调用工具
-          try {
-            const result = await MCPService.callTool({
-              name: actualToolName,
-              arguments: args,
-              clientName: serverId
-            });
-            return { result };
-          } catch (error) {
-            console.error(`调用服务器 ${serverId} 工具 ${actualToolName} 失败:`, error);
-            throw new Error(`调用服务器 ${serverId} 工具 ${actualToolName} 失败: ${(error as Error).message}`);
+          // 检查工具是否存在于此服务器
+          if (serverTools.some(tool => tool.name === toolName)) {
+            console.log(`在服务器 ${server.id} 中找到工具 ${toolName}，尝试调用`);
+            
+            if (server.transport === 'sse') {
+              // 发送HTTP请求
+              const response = await axios.post(
+                `${server.url}/tools/${toolName}`,
+                args,
+                {
+                  headers: {
+                    'Authorization': `Bearer ${this.apiKey}`,
+                    'Content-Type': 'application/json'
+                  }
+                }
+              );
+              
+              return { result: response.data };
+            } else if (server.transport === 'stdio') {
+              // 使用MCPService调用工具
+              const result = await MCPService.callTool({
+                name: toolName,
+                arguments: args,
+                clientName: server.id
+              });
+              return { result };
+            }
           }
-        } else {
-          throw new Error(`不支持的服务器传输类型: ${server.transport}`);
         }
-      } else {
-        // 不包含有效前缀，假设是全局工具
-        try {
-          console.log(`调用全局工具: ${toolName}`);
-          const result = await MCPService.callTool({
-            name: toolName,
-            arguments: args
-          });
-          return { result };
-        } catch (error) {
-          console.error(`调用全局工具 ${toolName} 失败:`, error);
-          throw new Error(`调用全局工具 ${toolName} 失败: ${(error as Error).message}`);
-        }
+        
+        // 如果所有尝试都失败，抛出原始错误
+        throw error;
       }
     } catch (error) {
       console.error('调用工具失败:', error);
@@ -1127,50 +899,19 @@ export class MCPClient {
    * 刷新可用工具列表
    */
   async refreshAvailableTools(): Promise<void> {
-    // 初始化工具列表
-    await this.initializeMcpTools();
+    // 清空工具列表
+    this.availableTools = [];
+    this.mcpTools = {};
     
-    // 用于去重的工具跟踪器
-    const globalToolTracker = new Set<string>();
+    // 重新连接服务器并加载工具
+    await this.connectEnabledServers();
     
-    // 跟踪已添加工具的基本名称
-    this.availableTools.forEach(tool => {
-      globalToolTracker.add(this.getToolBaseName(tool.name));
-    });
-    
-    // 尝试确保playwright服务器已经连接（用于浏览器工具）
-    try {
-      // 查找playwright服务器配置
-      const playwright = this.mcpServers.find(s => s.id === 'playwright');
-      if (playwright && playwright.enabled) {
-        // 确保连接以获取浏览器工具
-        try {
-          await this.connectToServer(playwright);
-          console.log('已确保Playwright服务连接以获取浏览器工具');
-        } catch (error) {
-          console.warn('连接Playwright服务失败，但继续其他工具加载', error);
-        }
-      }
-    } catch (error) {
-      console.warn('检查Playwright服务状态失败', error);
-    }
-    
-    // 重新加载全局工具
+    // 尝试加载全局工具
     try {
       const globalTools = await MCPService.getTools();
       if (globalTools && globalTools.length > 0) {
-        // 为全局工具创建一个假的服务器配置
-        const globalServer: MCPServerConfig = {
-          id: 'global',
-          name: '全局工具',
-          url: '',
-          description: '全局可用工具',
-          enabled: true,
-          transport: 'stdio'
-        };
-        
-        // 使用去重逻辑添加全局工具
-        this.addToolsWithPrefixAndDeduplication(globalTools, globalServer, globalToolTracker);
+        // 添加全局工具
+        this.availableTools = [...this.availableTools, ...globalTools];
       }
     } catch (error) {
       console.error('刷新全局工具失败:', error);
@@ -1191,35 +932,13 @@ export class MCPClient {
     
     console.log(`开始去重工具，当前工具数量: ${this.availableTools.length}`);
     
-    // 使用更精细的去重逻辑，保留不同服务器的工具
-    // 使用Map来跟踪每个服务器的工具，格式为 Map<服务器ID_基本名称, Tool>
+    // 使用Map进行去重，以工具名称为键
     const toolsMap = new Map<string, Tool>();
     
     for (const tool of this.availableTools) {
-      const baseName = this.getToolBaseName(tool.name);
-      
-      // 检查工具是否带有服务器前缀
-      const prefixMatch = /^([a-zA-Z0-9-]+)_(.+)$/.exec(tool.name);
-      if (prefixMatch) {
-        // 获取服务器ID
-        const serverId = prefixMatch[1];
-        
-        // 使用服务器ID和基本名称作为键，确保不同服务器的同名工具不被去重
-        const mapKey = `${serverId}_${baseName}`;
-        
-        // 如果此键未添加过工具，添加它
-        if (!toolsMap.has(mapKey)) {
-          toolsMap.set(mapKey, tool);
-        }
-      } else {
-        // 没有服务器前缀的工具（可能是全局工具或旧格式），使用基本名称作为键
-        if (!toolsMap.has(baseName)) {
-          toolsMap.set(baseName, tool);
-        } else {
-          // 如果已存在同名工具，保留没有前缀的版本（全局工具优先）
-          // 这个条件主要用于确保全局工具有优先权
-          toolsMap.set(baseName, tool);
-        }
+      // 以工具原始名称为键进行去重
+      if (!toolsMap.has(tool.name)) {
+        toolsMap.set(tool.name, tool);
       }
     }
     
@@ -1233,7 +952,27 @@ export class MCPClient {
    * 刷新所有可用工具
    */
   async refreshTools(): Promise<void> {
-    // 直接使用新实现
-    await this.refreshAvailableTools();
+    // 清空工具列表
+    this.availableTools = [];
+    this.mcpTools = {};
+    
+    // 重新连接服务器并加载工具
+    await this.connectEnabledServers();
+    
+    // 尝试加载全局工具
+    try {
+      const globalTools = await MCPService.getTools();
+      if (globalTools && globalTools.length > 0) {
+        // 添加全局工具
+        this.availableTools = [...this.availableTools, ...globalTools];
+      }
+    } catch (error) {
+      console.error('刷新全局工具失败:', error);
+    }
+    
+    // 执行最终去重
+    this.deduplicateTools();
+    
+    console.log('已刷新所有可用工具');
   }
 }

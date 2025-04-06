@@ -64,7 +64,8 @@ export function useChat() {
     createNewChat: () => string,
     currentChatId: string, 
     chatHistoryList: ChatHistoryItem[],
-    saveCurrentChat: (messages: ChatMessage[]) => void
+    saveCurrentChat: (messages: ChatMessage[]) => void,
+    onToolCallComplete?: (toolCall: { name: string; params: any; result?: any; error?: string; success: boolean }) => void
   ) {
     if (!newMessage.value.trim()) return;
     
@@ -134,6 +135,11 @@ export function useChat() {
         // 更新消息的工具调用列表
         if (messages.value[assistantMessageIndex]) {
           messages.value[assistantMessageIndex].toolCalls = [...currentToolCalls];
+        }
+        
+        // 如果提供了工具调用完成回调，调用它
+        if (onToolCallComplete && (toolCall.result !== undefined || toolCall.error !== undefined)) {
+          onToolCallComplete(toolCall);
         }
       };
       

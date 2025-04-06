@@ -118,26 +118,7 @@ export function useMCPSettings() {
   
   // 初始化默认服务器
   const initDefaultServers = () => {
-    mcpServers.value = [
-      {
-        id: 'weather',
-        name: '天气服务示例 (SSE)',
-        url: 'http://localhost:8080',
-        description: '示例天气服务，提供天气预报和气象警报功能',
-        enabled: false,
-        transport: 'sse'
-      },
-      {
-        id: 'playwright',
-        name: 'Playwright服务 (STDIO)',
-        url: '',
-        description: 'Playwright自动化测试服务',
-        enabled: true,
-        transport: 'stdio',
-        command: 'npx',
-        args: ['-y', '@automatalabs/mcp-server-playwright']
-      }
-    ];
+    mcpServers.value = [];
     
     // 保存到本地存储
     localStorage.setItem('mcpServers', JSON.stringify(mcpServers.value));
@@ -366,6 +347,22 @@ export function useMCPSettings() {
     // 如果是stdio类型服务器，从MCP服务中删除
     if (server.transport === 'stdio') {
       try {
+        // 获取与此服务器关联的所有客户端
+        const relatedClients = await MCPService.getClientsByServer(id);
+        
+        // 删除所有相关的客户端
+        for (const client of relatedClients) {
+          if (client.name !== id) { // 避免重复删除服务器本身
+            try {
+              await MCPService.deleteClient(client.name);
+              console.log(`已删除服务器 ${id} 的客户端: ${client.name}`);
+            } catch (clientError) {
+              console.error(`删除服务器 ${id} 的客户端 ${client.name} 失败:`, clientError);
+            }
+          }
+        }
+        
+        // 最后删除服务器本身
         await MCPService.deleteClient(id);
       } catch (error) {
         console.error(`从MCP服务删除客户端 ${id} 失败:`, error);

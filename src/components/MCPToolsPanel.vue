@@ -52,25 +52,6 @@
         </div>
       </div>
     </div>
-
-    <div class="browser-navigation">
-      <h4>浏览器导航</h4>
-      <div class="browser-input">
-        <input
-          v-model="browserUrl"
-          placeholder="输入URL"
-          class="param-input"
-          @keyup.enter="navigate"
-        />
-        <button @click="navigate" class="call-btn" :disabled="isNavigating">
-          导航
-        </button>
-      </div>
-      <div v-if="navigationResult" class="tool-result">
-        <h5>结果:</h5>
-        <pre>{{ JSON.stringify(navigationResult, null, 2) }}</pre>
-      </div>
-    </div>
   </div>
 </template>
 
@@ -144,44 +125,6 @@ async function callTool(tool: MCPTool) {
     toolResults[tool.name] = { error: err.message || '调用失败' };
   } finally {
     isCallingTool.value = false;
-  }
-}
-
-// 浏览器导航
-async function navigate() {
-  if (!browserUrl.value.trim()) return;
-  
-  isNavigating.value = true;
-  navigationResult.value = null;
-  
-  try {
-    // 确保URL有http/https前缀
-    let url = browserUrl.value;
-    if (!url.startsWith('http://') && !url.startsWith('https://')) {
-      url = 'https://' + url;
-    }
-    
-    // 先尝试确保playwright服务器已连接
-    try {
-      // 获取状态
-      const clients = await MCPService.getClients();
-      const playwright = clients.find(c => c.name === 'playwright');
-      
-      // 如果playwright客户端存在但未连接，则尝试连接
-      if (playwright && !playwright.isConnected) {
-        await MCPService.connectClient('playwright');
-        console.log('已连接到Playwright服务');
-      }
-    } catch (err) {
-      console.warn('连接Playwright服务失败，尝试直接调用', err);
-      // 继续执行，即使连接失败也尝试调用
-    }
-    
-    navigationResult.value = await MCPService.browserNavigate(url);
-  } catch (err: any) {
-    navigationResult.value = { error: err.message || '导航失败' };
-  } finally {
-    isNavigating.value = false;
   }
 }
 </script>

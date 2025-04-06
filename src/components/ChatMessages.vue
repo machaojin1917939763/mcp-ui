@@ -46,7 +46,7 @@
               <div v-html="formatMessage(group.user.content)" class="message-text"></div>
               <div class="message-actions">
                 <div class="message-time">{{ formatTime(group.user.timestamp) }}</div>
-                <button class="copy-message-button" @click="copyMessage(group.user.content, group.user.id)" :class="{ 'copied': copiedMessageIds[group.user.id || ''] }">
+                <button class="copy-message-button" @click="copyMessage(group.user.content)" :class="{ 'copied': copiedMessageIds[group.user.content] }">
                   <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
                     <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
@@ -61,8 +61,8 @@
             <div class="message-content">
               <div v-html="processMessageContent(group.assistant.content)" class="message-text"></div>
               
-              <!-- 工具调用组件 -->
-              <div v-if="group.assistant.toolCalls && group.assistant.toolCalls.length > 0" class="tool-calls-container">
+              <!-- 工具调用组件 - 内联到消息中 -->
+              <div v-if="group.assistant.toolCalls && group.assistant.toolCalls.length > 0" class="tool-calls-inline">
                 <ToolCallView
                   v-for="(toolCall, index) in group.assistant.toolCalls"
                   :key="index"
@@ -72,6 +72,25 @@
                   :error="toolCall.error"
                   :success="toolCall.success"
                 />
+                
+                <!-- 工具调用完成状态提示 -->
+                <div class="tool-call-status-hint" v-if="group.assistant.isComplete">
+                  <span class="status-icon completed">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                      <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                    </svg>
+                  </span>
+                  <span class="status-text">已完成所有处理</span>
+                </div>
+                <div class="tool-call-status-hint processing" v-else>
+                  <span class="status-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="rotating">
+                      <path d="M21 12a9 9 0 1 1-6.219-8.56"></path>
+                    </svg>
+                  </span>
+                  <span class="status-text">正在处理工具结果...</span>
+                </div>
               </div>
               
               <!-- 未完成消息的生成中指示器 -->
@@ -83,7 +102,7 @@
               <div class="message-actions">
                 <div class="message-time">{{ formatTime(group.assistant.timestamp) }}</div>
                 <div class="message-buttons">
-                  <button class="copy-message-button" @click="copyMessage(group.assistant.content, group.assistant.id || '')" :class="{ 'copied': copiedMessageIds[group.assistant.id || ''] }">
+                  <button class="copy-message-button" @click="copyMessage(group.assistant.content)" :class="{ 'copied': copiedMessageIds[group.assistant.content] }">
                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                       <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
                       <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
@@ -196,8 +215,17 @@ const regenerateAnswer = (groupIndex: number) => {
 
 // 处理消息内容，识别工具调用标记
 const processMessageContent = (content: string) => {
+  if (!content) return '';
+  
   // 替换工具调用标记
-  const processedContent = content.replace(/<tool-call.*?\/>/g, '');
+  let processedContent = content.replace(/<tool-call.*?\/>/g, '');
+  
+  // 移除JSON格式的工具调用内容
+  processedContent = processedContent.replace(/\{"type":"tool_calls","tool_calls":\[.*?\]\}/gs, '');
+  
+  // 清理可能出现的连续多个换行
+  processedContent = processedContent.replace(/\n{3,}/g, '\n\n');
+  
   // 格式化剩余文本
   return props.formatMessage(processedContent);
 };
@@ -211,7 +239,7 @@ const formatTime = (timestamp?: number) => {
 };
 
 // 复制消息内容
-const copyMessage = (content: string, id: string) => {
+const copyMessage = (content: string) => {
   // 创建一个临时元素来保存纯文本内容
   const tempElement = document.createElement('div');
   tempElement.innerHTML = content;
@@ -221,14 +249,14 @@ const copyMessage = (content: string, id: string) => {
   navigator.clipboard.writeText(plainText)
     .then(() => {
       // 标记消息为已复制
-      copiedMessageIds.value[id] = true;
+      copiedMessageIds.value[content] = true;
       
       // 显示复制成功通知
       showCopySuccess();
       
       // 2秒后重置复制状态
       setTimeout(() => {
-        copiedMessageIds.value[id] = false;
+        copiedMessageIds.value[content] = false;
       }, 2000);
     })
     .catch(err => {
@@ -513,8 +541,6 @@ const messageGroups = computed<MessageGroup[]>(() => {
   border: 1px solid rgba(255, 255, 255, 0.5); /* 轻微白色边框增强层次 */
 }
 
-
-
 /* 通用样式优化 */
 .message-content {
   border-radius: 12px;
@@ -760,4 +786,57 @@ const messageGroups = computed<MessageGroup[]>(() => {
   border-radius: 3px;
 }
 */
+
+/* 工具调用内联样式 */
+.tool-calls-inline {
+  margin: 10px 0;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+/* 工具调用状态提示样式 */
+.tool-call-status-hint {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 8px 0 4px 0;
+  padding: 8px 12px;
+  background-color: #f0f7ff;
+  border-radius: 6px;
+  font-size: 13px;
+  border-left: 3px solid #4a9eff;
+  color: #356cb0;
+}
+
+.tool-call-status-hint.processing {
+  background-color: #fff7e6;
+  border-left-color: #ffaa2c;
+  color: #9e6419;
+}
+
+.status-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.status-icon.completed {
+  color: #10a37f;
+}
+
+.status-text {
+  font-weight: 500;
+}
+
+/* 旋转动画 */
+.rotating {
+  animation: rotate 1.5s linear infinite;
+}
+
+@keyframes rotate {
+  100% {
+    transform: rotate(360deg);
+  }
+}
 </style> 

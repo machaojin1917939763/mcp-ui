@@ -158,7 +158,91 @@ const toggleHistoryPanelManual = () => {
 
 // 定义代理发送消息函数，添加滚动到底部的功能
 const sendMessage = () => {
-  chatSendMessage(createNewChat, currentChatId.value, chatHistoryList.value, saveCurrentChat);
+  // 使用正常的消息发送函数
+  chatSendMessage(
+    createNewChat, 
+    currentChatId.value, 
+    chatHistoryList.value, 
+    saveCurrentChat, 
+    async (toolCall: {name: string, params: any, result?: any, error?: string, success: boolean}) => {
+      // 处理工具调用结果
+      if (toolCall && (toolCall.result !== undefined || toolCall.error !== undefined)) {
+        // 查找最新添加的消息索引
+        const assistantMessageIndex = messages.value.length - 1;
+        
+        // 添加工具调用结果到历史记录
+        const toolResultMsg = toolCall.success 
+          ? `工具 ${toolCall.name} 返回结果: ${JSON.stringify(toolCall.result, null, 2)}`
+          : `工具 ${toolCall.name} 调用失败: ${toolCall.error}`;
+        
+        try {
+          // 添加一个表示工具结果的消息
+          mcpClient.addMessageToHistory({
+            role: 'assistant',
+            content: toolResultMsg
+          });
+
+          // 处理流式响应的回调函数
+          const handleStreamChunk = (chunk: string) => {
+            // 更新消息内容
+            if (messages.value[assistantMessageIndex]) {
+              messages.value[assistantMessageIndex].content += chunk;
+            }
+          };
+
+          // 递归函数：在每次工具调用完成后再次处理，直到没有新的工具调用
+          const continueProcessing = async () => {
+            // 请求AI基于工具结果继续回答
+            const result = await mcpClient.processStreamQuery(
+              `请基于工具 ${toolCall.name} 的调用结果继续处理。`,
+              handleStreamChunk,
+              // 同样的工具调用处理
+              async (nextToolCall: {name: string, params: any, result?: any, error?: string, success: boolean}) => {
+                // 如果还有进一步的工具调用，更新当前消息的工具调用列表
+                if (messages.value[assistantMessageIndex]) {
+                  const newToolCall = {
+                    ...nextToolCall,
+                    timestamp: Date.now(),
+                    success: true
+                  };
+                  
+                  // 获取现有工具调用列表
+                  const existingToolCalls = messages.value[assistantMessageIndex].toolCalls || [];
+                  // 添加新的工具调用
+                  messages.value[assistantMessageIndex].toolCalls = [...existingToolCalls, newToolCall];
+                }
+                
+                // 如果有工具调用结果，继续递归处理
+                if (nextToolCall.result !== undefined || nextToolCall.error !== undefined) {
+                  // 添加工具调用结果到历史记录
+                  const nextToolResultMsg = nextToolCall.success 
+                    ? `工具 ${nextToolCall.name} 返回结果: ${JSON.stringify(nextToolCall.result, null, 2)}`
+                    : `工具 ${nextToolCall.name} 调用失败: ${nextToolCall.error}`;
+                  
+                  // 添加到历史
+                  mcpClient.addMessageToHistory({
+                    role: 'assistant',
+                    content: nextToolResultMsg
+                  });
+                  
+                  // 继续处理下一步
+                  await continueProcessing();
+                }
+              }
+            );
+            
+            return result;
+          };
+          
+          // 启动递归处理
+          await continueProcessing();
+        } catch (error) {
+          console.error('处理工具调用结果时出错:', error);
+        }
+      }
+    }
+  );
+  
   // 添加一个短暂延迟后滚动到底部，确保DOM更新完成
   setTimeout(() => {
     const chatMessagesElement = document.querySelector('.messages-container');
@@ -351,19 +435,6 @@ onUnmounted(() => {
   }
 });
 
-// 添加MCP服务器参数更新函数
-const updateMcpServerArg = (data: { index: number, value: string }) => {
-  mcpUpdateArg(data);
-};
-
-const addMcpServerArg = () => {
-  mcpAddArg();
-};
-
-const removeMcpServerArg = (index: number) => {
-  mcpRemoveArg(index);
-};
-
 // 处理MCP服务器状态切换
 function handleMcpServerStatusToggle(id: string) {
   // 切换服务器状态
@@ -492,14 +563,15 @@ const handleRegenerateAnswer = async (groupIndex: number) => {
     };
     
     // 处理消息并获取流式响应
-    let currentToolCalls: Array<{name: string, params: Record<string, unknown>, timestamp: number}> = [];
+    let currentToolCalls: Array<{name: string, params: Record<string, unknown>, timestamp: number, success: boolean, result?: any, error?: string}> = [];
 
     // 定义工具调用处理器
-    const handleToolCall = (toolCall: any) => {
+    const handleToolCall = async (toolCall: any) => {
       // 创建工具调用对象
       const newToolCall = {
         ...toolCall,
-        timestamp: Date.now()
+        timestamp: Date.now(),
+        success: true
       };
       
       // 添加到当前工具调用列表
@@ -508,6 +580,76 @@ const handleRegenerateAnswer = async (groupIndex: number) => {
       // 更新消息的工具调用列表
       if (messages.value[assistantMessageIndex]) {
         messages.value[assistantMessageIndex].toolCalls = [...currentToolCalls];
+      }
+
+      // 如果有工具调用结果，将结果发送回AI进行后续处理
+      if (toolCall.result !== undefined || toolCall.error !== undefined) {
+        // 添加工具调用结果到历史记录
+        const toolResultMsg = toolCall.success 
+          ? `工具 ${toolCall.name} 返回结果: ${JSON.stringify(toolCall.result, null, 2)}`
+          : `工具 ${toolCall.name} 调用失败: ${toolCall.error}`;
+        
+        // 递归函数：在每次工具调用完成后再次处理，直到没有新的工具调用
+        const continueProcessing = async () => {
+          try {
+            // 添加一个表示工具结果的消息
+            mcpClient.addMessageToHistory({
+              role: 'assistant',
+              content: toolResultMsg
+            });
+
+            // 请求AI基于工具结果继续回答
+            const result = await mcpClient.processStreamQuery(
+              `请基于工具 ${toolCall.name} 的调用结果继续处理。`,
+              handleStreamChunk,
+              // 处理嵌套工具调用
+              async (nextToolCall: any) => {
+                // 创建嵌套工具调用对象
+                const nestedToolCall = {
+                  ...nextToolCall,
+                  timestamp: Date.now(),
+                  success: true
+                };
+                
+                // 添加到当前工具调用列表
+                currentToolCalls.push(nestedToolCall);
+                
+                // 更新消息的工具调用列表
+                if (messages.value[assistantMessageIndex]) {
+                  messages.value[assistantMessageIndex].toolCalls = [...currentToolCalls];
+                }
+                
+                // 如果有嵌套工具调用结果，递归处理
+                if (nextToolCall.result !== undefined || nextToolCall.error !== undefined) {
+                  // 添加工具调用结果到历史记录
+                  const nextToolResultMsg = nextToolCall.success 
+                    ? `工具 ${nextToolCall.name} 返回结果: ${JSON.stringify(nextToolCall.result, null, 2)}`
+                    : `工具 ${nextToolCall.name} 调用失败: ${nextToolCall.error}`;
+                  
+                  // 添加到历史
+                  mcpClient.addMessageToHistory({
+                    role: 'assistant',
+                    content: nextToolResultMsg
+                  });
+                  
+                  // 继续递归处理
+                  await continueProcessing();
+                }
+              }
+            );
+            
+            return result;
+          } catch (error) {
+            console.error('处理工具调用结果时出错:', error);
+            // 在消息中添加错误提示
+            if (messages.value[assistantMessageIndex]) {
+              messages.value[assistantMessageIndex].content += `\n\n处理工具调用结果时出错: ${(error as Error).message}`;
+            }
+          }
+        };
+        
+        // 启动递归处理
+        await continueProcessing();
       }
     };
     
@@ -520,12 +662,6 @@ const handleRegenerateAnswer = async (groupIndex: number) => {
       content: userQuestion
     });
     
-    // 重新处理用户消息，获取新的回答
-    const finalResponse = await mcpClient.processStreamQuery(
-      userQuestion, 
-      handleStreamChunk,
-      handleToolCall
-    );
     
     // 标记消息已完成
     if (messages.value[assistantMessageIndex]) {

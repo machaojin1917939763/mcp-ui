@@ -1,13 +1,4 @@
 {
-  "chrome": {
-    "command": "npx",
-    "args": [
-      "-y",
-      "@automatalabs/mcp-server-playwright"
-    ],
-    "description": "浏览器",
-    "lastUpdated": "2025-04-05T20:07:09.588Z"
-  },
   "item": {
     "command": "npx",
     "args": [
@@ -15,7 +6,7 @@
       "iterm-mcp"
     ],
     "description": "item",
-    "lastUpdated": "2025-04-05T20:07:10.683Z"
+    "lastUpdated": "2025-04-06T11:19:18.784Z"
   },
   "filesystem": {
     "command": "npx",
@@ -25,26 +16,15 @@
       "/Users/machaojin/VscodeProject/mcp/inspector-main"
     ],
     "description": "filesystem",
-    "lastUpdated": "2025-04-05T20:07:11.444Z"
+    "lastUpdated": "2025-04-06T11:19:23.780Z"
   },
-  "playwright": {
+  "chrome": {
     "command": "npx",
     "args": [
       "-y",
       "@automatalabs/mcp-server-playwright"
     ],
-    "description": "默认Playwright客户端",
-    "lastUpdated": "2025-04-05T20:07:12.224Z"
-  },
-  "weather-stdio": {
-    "command": "uv",
-    "args": [
-      "--directory",
-      "/path/to/weather",
-      "run",
-      "weather.py"
-    ],
-    "description": "示例STDIO天气服务",
-    "lastUpdated": "2025-04-05T20:07:13.080Z"
+    "description": "浏览器",
+    "lastUpdated": "2025-04-06T11:19:24.429Z"
   }
 }

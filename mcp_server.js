@@ -30,7 +30,6 @@ app.use(bodyParser.json());
 // 存储多个MCP客户端
 const mcpClients = {};
 const clientConfigs = {};
-const defaultClientName = "playwright";
 
 // 从文件加载客户端配置
 function loadClientConfigs() {
@@ -68,15 +67,25 @@ function saveClientConfigs() {
   }
 }
 
-// 设置默认客户端配置
-if (!loadClientConfigs() || !clientConfigs[defaultClientName]) {
-  clientConfigs[defaultClientName] = {
-    command: "npx",
-    args: ['-y', "@automatalabs/mcp-server-playwright"],
-    description: "默认Playwright客户端"
-  };
-  saveClientConfigs();
+// 清理所有已连接的客户端
+async function cleanupClients() {
+  for (const clientName of Object.keys(mcpClients)) {
+    try {
+      await closeClient(clientName);
+      console.log(`已清理客户端: ${clientName}`);
+    } catch (error) {
+      console.error(`清理客户端 ${clientName} 失败:`, error);
+    }
+  }
 }
+
+// 加载客户端配置前先清理
+cleanupClients().then(() => {
+  loadClientConfigs();
+}).catch(error => {
+  console.error('清理客户端时出错:', error);
+  loadClientConfigs(); // 即使清理失败也继续加载配置
+});
 
 // 初始化指定的MCP客户端
 async function initMCPClient(clientName) {
@@ -179,6 +188,40 @@ app.get('/mcp/clients', (req, res) => {
     isConnected: !!mcpClients[name]
   }));
   res.json({ clients });
+});
+
+// 根据服务器ID获取相关的客户端列表
+app.get('/mcp/clients/by-server/:serverId', (req, res) => {
+  try {
+    const { serverId } = req.params;
+    
+    // 先查找服务器配置
+    if (!clientConfigs[serverId]) {
+      return res.status(404).json({ error: `未找到服务器: ${serverId}` });
+    }
+    
+    const serverConfig = clientConfigs[serverId];
+    
+    // 查找相同命令和参数的客户端配置
+    const relatedClients = Object.entries(clientConfigs)
+      .filter(([name, config]) => 
+        config.command === serverConfig.command && 
+        JSON.stringify(config.args) === JSON.stringify(serverConfig.args)
+      )
+      .map(([name, config]) => ({
+        name,
+        ...config,
+        isConnected: !!mcpClients[name]
+      }));
+    
+    res.json({ 
+      serverId, 
+      clients: relatedClients 
+    });
+  } catch (error) {
+    console.error(`获取服务器 ${req.params.serverId} 的客户端列表失败:`, error);
+    res.status(500).json({ error: "获取客户端列表失败", message: error.message });
+  }
 });
 
 // 获取特定客户端的详细信息
@@ -570,12 +613,16 @@ app.get('/mcp/clients/:clientName/prompts', async (req, res) => {
 });
 
 // ===== 兼容旧接口 =====
-// 这些API保持向后兼容性，默认使用defaultClientName客户端
+// 这些API需要客户端指定要使用哪个MCP客户端
 
 // 获取可用工具列表
 app.get('/mcp/tools', async (req, res) => {
   try {
-    const clientName = req.query.client || defaultClientName;
+    const { client: clientName } = req.query;
+    
+    if (!clientName) {
+      return res.status(400).json({ error: "必须指定client参数" });
+    }
     
     if (!clientConfigs[clientName]) {
       return res.status(404).json({ error: `未找到客户端: ${clientName}` });
@@ -597,10 +644,14 @@ app.get('/mcp/tools', async (req, res) => {
 // 调用工具
 app.post('/mcp/tools/call', async (req, res) => {
   try {
-    const { name, arguments: args, clientName = defaultClientName } = req.body;
+    const { name, arguments: args, clientName } = req.body;
     
     if (!name) {
       return res.status(400).json({ error: "缺少工具名称" });
+    }
+    
+    if (!clientName) {
+      return res.status(400).json({ error: "必须指定clientName参数" });
     }
     
     if (!clientConfigs[clientName]) {
@@ -627,7 +678,11 @@ app.post('/mcp/tools/call', async (req, res) => {
 // 获取可用资源列表
 app.get('/mcp/resources', async (req, res) => {
   try {
-    const clientName = req.query.client || defaultClientName;
+    const { client: clientName } = req.query;
+    
+    if (!clientName) {
+      return res.status(400).json({ error: "必须指定client参数" });
+    }
     
     if (!clientConfigs[clientName]) {
       return res.status(404).json({ error: `未找到客户端: ${clientName}` });
@@ -649,7 +704,11 @@ app.get('/mcp/resources', async (req, res) => {
 // 获取可用提示列表
 app.get('/mcp/prompts', async (req, res) => {
   try {
-    const clientName = req.query.client || defaultClientName;
+    const { client: clientName } = req.query;
+    
+    if (!clientName) {
+      return res.status(400).json({ error: "必须指定client参数" });
+    }
     
     if (!clientConfigs[clientName]) {
       return res.status(404).json({ error: `未找到客户端: ${clientName}` });
@@ -668,19 +727,14 @@ app.get('/mcp/prompts', async (req, res) => {
   }
 });
 
-// 应用启动时初始化默认MCP客户端
-initMCPClient(defaultClientName).then(() => {
-  console.log("默认MCP客户端初始化成功");
-}).catch(error => {
-  console.error("默认MCP客户端初始化失败:", error);
-});
-
 // 关闭应用时断开所有连接
 process.on('SIGINT', async () => {
   for (const [clientName, client] of Object.entries(mcpClients)) {
     try {
-      await client.disconnect();
-      console.log(`MCP客户端 ${clientName} 已断开连接`);
+      if (typeof client.disconnect === 'function') {
+        await client.disconnect();
+        console.log(`MCP客户端 ${clientName} 已断开连接`);
+      }
     } catch (error) {
       console.error(`断开MCP客户端 ${clientName} 连接失败:`, error);
     }
@@ -692,4 +746,4 @@ process.on('SIGINT', async () => {
 app.listen(port, () => {
   console.log(`MCP后端服务运行在 http://localhost:${port}`);
   console.log(`客户端配置保存位置: ${CLIENT_CONFIG_PATH}`);
-}); 
+});

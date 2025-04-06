@@ -104,12 +104,15 @@ const formatResult = computed(() => {
   overflow: hidden;
   background-color: #fafafa;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  display: inline-block;
+  max-width: 100%;
+  margin-right: auto;
 }
 
 .tool-call-header {
   display: flex;
   align-items: center;
-  padding: 10px 12px;
+  padding: 8px 12px;
   background-color: #f5f5f5;
   cursor: pointer;
   transition: background-color 0.2s;

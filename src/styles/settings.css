@@ -984,3 +984,120 @@
     width: 16px;
     height: 16px;
   }
+  
+/* 关闭按钮样式 */
+.close-settings-btn {
+    position: absolute;
+    top: 15px;
+    right: 15px;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background-color: #f0f0f0;
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    z-index: 10;
+    transition: all 0.2s ease;
+  }
+  
+  /* 遮罩层样式覆盖 */
+  .settings-overlay {
+    opacity: 1 !important;
+    background-color: rgba(0, 0, 0, 0.5);
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: 1000;
+  }
+  
+  .close-settings-btn:hover {
+    background-color: #e0e0e0;
+    transform: scale(1.05);
+  }
+  
+  .close-settings-btn svg {
+    color: #666;
+    transition: color 0.2s ease;
+  }
+  
+  .close-settings-btn:hover svg {
+    color: #333;
+  }
+  
+  .api-key-section {
+    margin-top: 15px;
+    width: 100%;
+  }
+  
+  .api-key-section label {
+    margin-bottom: 8px;
+    display: block;
+    font-weight: 500;
+  }
+  
+  .api-key-section small {
+    color: #666;
+    margin-top: 4px;
+    display: block;
+    font-size: 0.85em;
+  }
+  
+  /* 保存按钮样式 */
+  .save-btn-group {
+    margin-top: 20px;
+    display: flex;
+    justify-content: center;
+  }
+  
+  .save-settings-button {
+    background-color: #1677ff;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    padding: 10px 20px;
+    font-size: 16px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 0.3s;
+  }
+  
+  .save-settings-button:hover {
+    background-color: #0958d9;
+  }
+  
+  .save-settings-button:active {
+    background-color: #003eb3;
+  }
+  
+  /* 设置面板动画效果 */
+  .settings-fade-enter-active,
+  .settings-fade-leave-active {
+    transition: opacity 0.3s ease !important;
+  }
+  
+  .settings-fade-enter-from,
+  .settings-fade-leave-to {
+    opacity: 0 !important;
+  }
+  
+  .settings-slide-enter-active,
+  .settings-slide-leave-active {
+    transition: transform 0.3s ease, opacity 0.3s ease !important;
+  }
+  
+  .settings-slide-enter-from {
+    transform: translateX(100%) !important;
+    opacity: 0 !important;
+  }
+  
+  .settings-slide-leave-to {
+    transform: translateX(100%) !important;
+    opacity: 0 !important;
+  }

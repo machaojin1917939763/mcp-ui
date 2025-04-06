@@ -112,7 +112,7 @@ import { ref, defineProps, defineEmits } from 'vue';
 interface ChatHistory {
   id: string;
   title: string;
-  date: number;
+  date: string;
   messages: any[];
 }
 

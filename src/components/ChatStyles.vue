@@ -277,7 +277,7 @@
 }
 
 .message-content pre code {
-  background-color: transparent;
+  /* background-color: transparent; */
   padding: 0;
   margin: 0;
   border-radius: 0;
