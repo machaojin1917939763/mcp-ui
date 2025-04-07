@@ -15,7 +15,7 @@ marked.setOptions({
 });
 
 // 自定义数学公式正则表达式 - 修复后更灵活的匹配
-const inlineMathRegex = /(?<!\$)\$([^$]+?)\$/g;
+const inlineMathRegex = /(?<!\$)\$([^$]+?)\$|\\\\?\(([^)]+?)\\\\?\)/g;
 const blockMathRegex = /(\$\$([\s\S]+?)\$\$)|(\\\[([\s\S]+?)\\\])/g;
 
 // 自定义高亮函数
@@ -283,9 +283,12 @@ export function useChat() {
       });
       
       // 提取并保存行内数学公式
-      processedContent = processedContent.replace(inlineMathRegex, (match, expression) => {
+      processedContent = processedContent.replace(inlineMathRegex, (match, dollarContent, bracketContent) => {
+        // 确定实际内容
+        const expression = dollarContent || bracketContent;
+        
         // 排除可能是代码中的美元符号
-        if (expression.trim() === '' || expression.includes('\n')) {
+        if (!expression || expression.trim() === '' || expression.includes('\n')) {
           return match;
         }
 

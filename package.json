@@ -36,6 +36,8 @@
     "fs-extra": "^11.3.0",
     "highlight.js": "^11.11.1",
     "katex": "^0.16.21",
+    "markdown-it": "^14.1.0",
+    "markdown-it-katex": "^2.0.3",
     "marked": "^15.0.7",
     "marked-katex-extension": "^5.1.4",
     "mcp": "^1.4.2",
@@ -46,6 +48,7 @@
   },
   "devDependencies": {
     "@types/dompurify": "^3.0.5",
+    "@types/markdown-it": "^14.1.2",
     "@types/marked": "^5.0.2",
     "@types/node": "^22.14.0",
     "@vitejs/plugin-vue": "^5.2.1",
