@@ -15,8 +15,8 @@ marked.setOptions({
 });
 
 // 自定义数学公式正则表达式 - 修复后更灵活的匹配
-const inlineMathRegex = /\$(.+?)\$/g;
-const blockMathRegex = /\$\$([\s\S]+?)\$\$/g;
+const inlineMathRegex = /(?<!\$)\$([^$]+?)\$/g;
+const blockMathRegex = /(\$\$([\s\S]+?)\$\$)|(\\\[([\s\S]+?)\\\])/g;
 
 // 自定义高亮函数
 function highlightCode(code: string, language?: string): string {
@@ -298,8 +298,11 @@ export function useChat() {
       });
       
       // 提取并保存块级数学公式
-      processedContent = processedContent.replace(blockMathRegex, (match, expression) => {
-        if (expression.trim() === '') {
+      processedContent = processedContent.replace(blockMathRegex, (match, fullMatch, dollarContent, bracketMatch, bracketContent) => {
+        // 确定实际内容
+        const expression = dollarContent || bracketContent;
+        
+        if (!expression || expression.trim() === '') {
           return match;
         }
         
