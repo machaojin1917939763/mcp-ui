@@ -6,6 +6,17 @@
   --border-color: #e0e0e0;
   --text-color: #333;
   --text-light: #666;
+  
+  /* 字体系统 */
+  --font-sans: 'HarmonyOS Sans SC', 'PingFang SC', 'Microsoft YaHei UI', -apple-system, system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Cascadia Code', 'Source Code Pro', monospace;
+  --font-serif: 'Noto Serif CJK SC', 'Source Han Serif SC', 'SimSun', serif;
+  
+  /* 字体大小 */
+  --font-size-base: 16px;
+  --font-size-sm: 14px;
+  --font-size-lg: 18px;
+  --font-size-xl: 20px;
 }
 
 * {
@@ -18,8 +29,30 @@ html, body {
   height: 100%;
   width: 100%;
   overflow: hidden;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-family: var(--font-sans);
+  font-size: var(--font-size-base);
+  line-height: 1.7;
+  letter-spacing: 0.01em;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   background-color: var(--background-color);
+  color: var(--text-color);
+}
+
+/* 代码相关元素使用等宽字体 */
+code, pre, .code-block, .monospace {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  line-height: 1.6;
+  letter-spacing: 0;
+}
+
+/* 文章内容使用衬线字体提高可读性 */
+article, .article-content {
+  font-family: var(--font-serif);
+  font-size: var(--font-size-lg);
+  line-height: 1.8;
+  letter-spacing: 0.02em;
 }
 
 #app {

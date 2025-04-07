@@ -11,6 +11,7 @@ node_modules/
 /dist
 /.next/
 /out/
+/release
 
 # 环境文件
 .env

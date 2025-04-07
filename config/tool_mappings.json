@@ -10,6 +10,9 @@
   "search_files": "filesystem",
   "get_file_info": "filesystem",
   "list_allowed_directories": "filesystem",
+  "write_to_terminal": "item",
+  "read_terminal_output": "item",
+  "send_control_character": "item",
   "browser_navigate": "chrome",
   "browser_screenshot": "chrome",
   "browser_click": "chrome",
@@ -19,8 +22,5 @@
   "browser_select_text": "chrome",
   "browser_hover": "chrome",
   "browser_hover_text": "chrome",
-  "browser_evaluate": "chrome",
-  "write_to_terminal": "item",
-  "read_terminal_output": "item",
-  "send_control_character": "item"
+  "browser_evaluate": "chrome"
 }

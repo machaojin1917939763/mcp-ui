@@ -36,6 +36,10 @@ function logWithTimestamp(level, message, ...args) {
       console.log(formattedMessage, ...args);
     }
   }
+  // 如果是在Electron子进程中运行，发送消息给主进程
+  if (process.send) {
+    process.send({ level, message, timestamp });
+  }
 }
 
 // 日志工具对象

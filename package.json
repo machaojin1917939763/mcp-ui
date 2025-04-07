@@ -1,15 +1,20 @@
 {
   "name": "mcp-chat",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
+  "description": "一个强大的AI驱动的聊天应用，支持多种AI模型和MCP工具集成",
+  "author": {
+    "name": "Mamachaojin2@gmail.com",
+    "url": "https://github.com/machaojin1917939763"
+  },
   "type": "module",
   "main": "electron/main.cjs",
   "scripts": {
     "dev": "vite",
-    "build": "vue-tsc -b && vite build",
+    "build": "vite build",
     "preview": "vite preview",
     "server": "node server.js",
-    "mcp:server": "node mcp_server.js",
+    "mcp:server": "cross-env NODE_ENV=development node electron/mcp_server.cjs",
     "electron:dev": "concurrently \"npm run dev\" \"npm run electron:start\"",
     "electron:start": "cross-env NODE_ENV=development electron .",
     "electron:build": "npm run build && electron-builder",
@@ -27,6 +32,7 @@
     "dotenv": "^16.4.7",
     "dotenv-expand": "^10.0.0",
     "express": "^4.18.2",
+    "fs-extra": "^11.3.0",
     "highlight.js": "^11.11.1",
     "marked": "^15.0.7",
     "mcp": "^1.4.2",

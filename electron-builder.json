@@ -1,32 +1,91 @@
 {
   "appId": "com.mcp.chat",
   "productName": "MCP Chat",
+  "copyright": "Copyright © 2024 Ma Chaojin",
+  "extraMetadata": {
+    "version": "1.0.1",
+    "author": {
+      "name": "Mamachaojin2@gmail.com",
+      "url": "https://github.com/machaojin1917939763"
+    }
+  },
   "directories": {
-    "output": "release/"
+    "output": "release"
   },
   "files": [
     "dist/**/*",
-    "electron/**/*"
+    "electron/**/*",
+    "package.json",
+    "public/icons/*",
+    "config/**/*"
   ],
+  "extraResources": [
+    {
+      "from": "node_modules",
+      "to": "node_modules",
+      "filter": [
+        "**/@modelcontextprotocol/**/*",
+        "**/express/**/*",
+        "**/body-parser/**/*",
+        "**/cors/**/*",
+        "**/dotenv/**/*"
+      ]
+    }
+  ],
+  "asar": true,
+  "compression": "maximum",
   "mac": {
     "category": "public.app-category.utilities",
-    "icon": "public/icon.icns"
+    "icon": "public/icons/mac.icns",
+    "target": [
+      {
+        "target": "dmg",
+        "arch": [
+          "x64",
+          "arm64"
+        ]
+      }
+    ],
+    "darkModeSupport": true
   },
   "win": {
     "target": [
-      "nsis"
+      {
+        "target": "nsis",
+        "arch": [
+          "x64"
+        ]
+      }
     ],
-    "icon": "public/icon.ico"
+    "icon": "public/icons/win.ico",
+    "artifactName": "${productName}-Setup-${version}.${ext}"
   },
   "linux": {
     "target": [
-      "AppImage"
+      {
+        "target": "AppImage",
+        "arch": [
+          "x64"
+        ]
+      }
     ],
     "category": "Utility",
-    "icon": "public/icon.png"
+    "icon": "public/icons/linux.png",
+    "synopsis": "MCP Chat Application"
   },
   "nsis": {
     "oneClick": false,
-    "allowToChangeInstallationDirectory": true
+    "allowToChangeInstallationDirectory": true,
+    "createDesktopShortcut": true,
+    "createStartMenuShortcut": true,
+    "shortcutName": "MCP Chat",
+    "installerIcon": "public/icons/win.ico",
+    "uninstallerIcon": "public/icons/win.ico",
+    "installerHeaderIcon": "public/icons/win.ico",
+    "license": "LICENSE"
+  },
+  "publish": {
+    "provider": "generic",
+    "url": ""
   }
 } 

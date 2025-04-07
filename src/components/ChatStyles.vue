@@ -253,34 +253,16 @@
   height: 14px;
 }
 
-.message-content pre {
-  background-color: #f6f8fa;
-  padding: 16px;
-  overflow: auto;
-  margin: 0;
+.message-content {
+  font-family: var(--font-sans);
+  font-size: var(--font-size-base);
+  line-height: 1.7;
+  letter-spacing: 0.01em;
 }
 
-.message-content code {
-  font-family: SFMono-Regular, Consolas, Liberation Mono, Menlo, monospace;
-  font-size: 0.9em;
-  padding: 0.2em 0.4em;
-  margin: 0;
-  background-color: rgba(175, 184, 193, 0.2);
-  border-radius: 3px;
-}
-
-.message-content .code-block-wrapper code {
-  background-color: transparent;
-  padding: 0;
-  margin: 0;
-  border-radius: 0;
-}
-
-.message-content pre code {
-  /* background-color: transparent; */
-  padding: 0;
-  margin: 0;
-  border-radius: 0;
+.message-content p {
+  margin-bottom: 1.2em;
+  line-height: 1.7;
 }
 
 .message-content h1, 
@@ -289,19 +271,21 @@
 .message-content h4, 
 .message-content h5, 
 .message-content h6 {
-  margin-top: 16px;
-  margin-bottom: 8px;
+  font-family: var(--font-sans);
+  margin-top: 1.5em;
+  margin-bottom: 0.8em;
   font-weight: 600;
-  line-height: 1.25;
+  line-height: 1.4;
+  letter-spacing: 0.01em;
   color: #24292f;
 }
 
-.message-content h1 { font-size: 2em; }
-.message-content h2 { font-size: 1.5em; }
-.message-content h3 { font-size: 1.25em; }
-.message-content h4 { font-size: 1em; }
-.message-content h5 { font-size: 0.875em; }
-.message-content h6 { font-size: 0.85em; }
+.message-content h1 { font-size: var(--font-size-xl); }
+.message-content h2 { font-size: calc(var(--font-size-lg) * 1.1); }
+.message-content h3 { font-size: var(--font-size-lg); }
+.message-content h4 { font-size: var(--font-size-base); }
+.message-content h5 { font-size: var(--font-size-sm); }
+.message-content h6 { font-size: calc(var(--font-size-sm) * 0.95); }
 
 .message-content blockquote {
   padding: 0 1em;
@@ -422,5 +406,41 @@
   font-size: 14px;
   color: #57606a;
   line-height: 1.5;
+}
+
+.message-content pre {
+  background-color: #f6f8fa;
+  padding: 16px;
+  overflow: auto;
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  line-height: 1.6;
+  letter-spacing: 0;
+}
+
+.message-content code {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  padding: 0.2em 0.4em;
+  margin: 0;
+  background-color: rgba(175, 184, 193, 0.2);
+  border-radius: 3px;
+  letter-spacing: 0;
+}
+
+.message-content .code-block-wrapper code {
+  background-color: transparent;
+  padding: 0;
+  margin: 0;
+  border-radius: 0;
+  font-family: var(--font-mono);
+}
+
+.message-content pre code {
+  padding: 0;
+  margin: 0;
+  border-radius: 0;
+  font-family: var(--font-mono);
 }
 </style> 
