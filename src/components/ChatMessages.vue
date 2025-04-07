@@ -620,9 +620,7 @@ const completedToolCallsCount = (toolCalls: ToolCall[]): number => {
 .assistant .message-content :deep(pre) {
   background-color: #f8f9fa;
   border-radius: 6px;
-  padding: 12px;
   overflow-x: auto;
-  margin: 12px 0;
   position: relative;
   border: 1px solid #eaeaea;
 }

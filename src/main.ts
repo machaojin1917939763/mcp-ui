@@ -4,4 +4,36 @@ import './styles/app.css'
 import 'katex/dist/katex.min.css'
 import App from './App.vue'
 
+// 添加全局代码复制功能
+declare global {
+  interface Window {
+    copyCode: (button: HTMLElement) => void;
+  }
+}
+
+window.copyCode = function(button: HTMLElement) {
+  const codeBlock = button.closest('.code-block-wrapper');
+  if (!codeBlock) return;
+  
+  const codeElement = codeBlock.querySelector('code');
+  if (!codeElement) return;
+  
+  const code = codeElement.textContent || '';
+  
+  navigator.clipboard.writeText(code).then(() => {
+    // 更新按钮状态
+    button.classList.add('copied');
+    const originalText = button.querySelector('span')?.textContent;
+    if (originalText) {
+      button.querySelector('span')!.textContent = '已复制';
+      setTimeout(() => {
+        button.classList.remove('copied');
+        button.querySelector('span')!.textContent = originalText;
+      }, 2000);
+    }
+  }).catch(err => {
+    console.error('复制失败:', err);
+  });
+};
+
 createApp(App).mount('#app')

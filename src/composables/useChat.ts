@@ -14,8 +14,8 @@ marked.setOptions({
   gfm: true     // 使用GitHub风格的Markdown
 });
 
-// 自定义数学公式正则表达式 - 修复后更灵活的匹配
-const inlineMathRegex = /(?<!\$)\$([^$]+?)\$|\\\\?\(([^)]+?)\\\\?\)/g;
+// 自定义数学公式正则表达式 - 更精确的匹配
+const inlineMathRegex = /(?<!\$)\$([^$\n]+?)\$|\\\\?\(([^)\n]+?)\\\\?\)/g;
 const blockMathRegex = /(\$\$([\s\S]+?)\$\$)|(\\\[([\s\S]+?)\\\])/g;
 
 // 自定义高亮函数
@@ -234,7 +234,7 @@ export function useChat() {
     if (!content) return '';
     
     try {
-      // 解码HTML实体编码
+      // 解码HTML实体函数
       function decodeHTMLEntities(text: string): string {
         const textArea = document.createElement('textarea');
         textArea.innerHTML = text;
@@ -294,7 +294,6 @@ export function useChat() {
 
         // 处理表达式
         const cleanExpression = expression.trim().replace(/,\s/g, ' ');
-        console.log('找到行内公式:', cleanExpression);
         const id = `MATH_BLOCK_${mathBlocks.length}`;
         mathBlocks.push({ isInline: true, expression: cleanExpression });
         return id;
@@ -311,7 +310,6 @@ export function useChat() {
         
         // 处理表达式，替换数学公式中的逗号加空格为单纯的空格
         const cleanExpression = expression.trim().replace(/,\s/g, ' ');
-        console.log('找到块级公式:', cleanExpression);
         const id = `MATH_BLOCK_${mathBlocks.length}`;
         mathBlocks.push({ isInline: false, expression: cleanExpression });
         return id;
@@ -359,8 +357,6 @@ export function useChat() {
         const id = `MATH_BLOCK_${index}`;
         
         try {
-          console.log(`尝试渲染公式: ${block.expression}, 行内: ${block.isInline}`);
-          
           // 使用KaTeX渲染数学公式
           const renderedMath = katex.renderToString(block.expression, {
             displayMode: !block.isInline,
@@ -374,8 +370,6 @@ export function useChat() {
             fleqn: false
           });
           
-          console.log('公式渲染成功');
-          
           // 创建包装器，为行内和块级公式提供不同的样式
           const mathHTML = block.isInline
             ? `<span class="math-inline">${renderedMath}</span>`
@@ -386,10 +380,10 @@ export function useChat() {
         } catch (error) {
           console.error(`渲染数学公式时出错: ${block.expression}`, error);
           
-          // 如果公式渲染失败，保留原始公式文本
+          // 如果公式渲染失败，保留原始公式文本并添加错误提示
           const fallbackHTML = block.isInline 
-            ? `<span class="math-error">$${block.expression}$</span>` 
-            : `<div class="math-error">$$${block.expression}$$</div>`;
+            ? `<span class="math-error" title="公式渲染失败">$${block.expression}$</span>` 
+            : `<div class="math-error" title="公式渲染失败">$$${block.expression}$$</div>`;
           
           html = html.replace(id, fallbackHTML);
         }

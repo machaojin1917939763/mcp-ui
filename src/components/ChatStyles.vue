@@ -208,11 +208,8 @@
 
 /* 代码块样式 */
 .code-block-wrapper {
-  margin: 16px 0;
   border-radius: 6px;
   overflow: hidden;
-  background-color: #f6f8fa;
-  border: 1px solid #e1e4e8;
 }
 
 .code-block-header {
