@@ -666,11 +666,14 @@ export class MCPClient {
           tools
         );
         
+        let isToolCall = false;
+        
         try {
           // 检查是否为工具调用的JSON响应
           const responseData = JSON.parse(response);
           
           if (responseData.type === 'tool_calls' && responseData.tool_calls?.length > 0) {
+            isToolCall = true;
             // 处理工具调用
             let finalResponse = '';
             
@@ -731,10 +734,30 @@ export class MCPClient {
               content: finalResponse
             });
             
-            return finalResponse;
+            // 将工具调用结果发送回AI，并询问问题是否已解决
+            this.messageHistory.push({
+              role: 'user',
+              content: `以上是工具调用的结果。请根据这些结果，回答我的问题：${query}。如果问题已解决，请说明；如果没有解决，请进一步解释或尝试其他方法。`
+            });
+            
+            // 重新获取AI回复
+            const followUpResponse = await this.llmService.sendStreamMessage(
+              this.messageHistory,
+              safeOnChunk,
+              tools
+            );
+            
+            // 将AI的后续回复添加到历史
+            this.messageHistory.push({
+              role: 'assistant',
+              content: followUpResponse
+            });
+            
+            return followUpResponse;
           }
         } catch (e) {
           // 不是JSON，说明是普通文本回复
+          console.log('不是工具调用的JSON响应，是普通文本回复');
         }
         
         // 将助手回复添加到消息历史
@@ -743,7 +766,14 @@ export class MCPClient {
           content: response
         });
         
-        return response;
+        // 如果有工具调用但解析失败，或者没有工具调用，需要询问是否解决
+        if (isToolCall) {
+          // 这种情况在上面已处理
+          return response;
+        } else {
+          // 无工具调用情况，直接返回原始响应
+          return response;
+        }
       } else {
         // 暂不支持服务端的流式响应，使用普通响应代替
         const responseText = await this.processQuery(query);
@@ -762,29 +792,6 @@ export class MCPClient {
       
       safeOnChunk(errorMessage);
       return errorMessage;
-    }
-  }
-
-  /**
-   * 调用STDIO服务器的工具
-   * @param server STDIO服务器配置
-   * @param toolName 工具名称
-   * @param args 参数对象
-   */
-  private async callStdioTool(server: MCPServerConfig, toolName: string, args: any): Promise<{result: any}> {
-    console.log(`调用STDIO服务器 ${server.id} 的工具 ${toolName}:`, args);
-    
-    // 使用MCPService调用工具
-    try {
-      const result = await MCPService.callTool({
-        name: toolName,
-        arguments: args,
-        clientName: server.id
-      });
-      return { result };
-    } catch (error) {
-      console.error(`调用STDIO服务器 ${server.id} 的工具 ${toolName} 失败:`, error);
-      throw error;
     }
   }
 
