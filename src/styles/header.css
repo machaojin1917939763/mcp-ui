@@ -1,0 +1,94 @@
+/* 头部样式 */
+.chat-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 20px;
+  background-color: white;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+  z-index: 10;
+  border-bottom: 1px solid #eaeef2;
+}
+
+.header-icon {
+  margin-right: 8px;
+  color: #3498db;
+  vertical-align: middle;
+}
+
+.header-title h2 {
+  margin: 0;
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: #2c3e50;
+  background: linear-gradient(90deg, #1064a3, #3498db);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  display: flex;
+  align-items: center;
+}
+
+.header-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.icon-button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s;
+}
+
+.icon-button:hover {
+  background-color: #f0f0f0;
+}
+
+.clear-button svg {
+  color: #666;
+}
+
+.settings-button svg {
+  color: #666;
+}
+
+.model-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 5px;
+}
+
+.provider-badge,
+.model-badge {
+  font-size: 0.75rem;
+  padding: 4px 10px;
+  border-radius: 6px;
+  background-color: #f0f0f0;
+  color: #555;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.provider-badge.openai {
+  background-color: #e7f7f0;
+  color: #10a37f;
+}
+
+.provider-badge.anthropic {
+  background-color: #f7e7f0;
+  color: #a31064;
+}
+
+.provider-badge.deepseek {
+  background-color: #e7eef7;
+  color: #1064a3;
+} 

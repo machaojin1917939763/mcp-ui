@@ -1,0 +1,160 @@
+/* 基础容器样式 */
+.chat-container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background-color: #f7f9fc;
+  position: relative;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+/* 隐藏所有滚动条 */
+::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
+}
+
+* {
+  -ms-overflow-style: none;  /* IE 和 Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+
+/* 通知样式 */
+.notification {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%) translateY(-100px);
+  background-color: #333;
+  color: white;
+  padding: 10px 20px;
+  border-radius: 6px;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.2);
+  z-index: 1000;
+  transition: transform 0.3s ease;
+}
+
+.notification.show {
+  transform: translateX(-50%) translateY(0);
+}
+
+/* 遮罩层 */
+.overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.3);
+  z-index: 50;
+  backdrop-filter: blur(2px);
+}
+
+/* 动画效果 */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes message-appear {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes message-group-appear {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes typing {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-5px); }
+}
+
+@keyframes pulse {
+  0%, 100% { transform: scale(1); opacity: 0.6; }
+  50% { transform: scale(1.2); opacity: 1; }
+}
+
+@keyframes slide-in-right {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+/* 移动端适配 */
+@media (max-width: 768px) {
+  .chat-messages {
+    padding: 15px 10px;
+  }
+  
+  .message {
+    max-width: 90%;
+  }
+  
+  .bottom-controls {
+    width: calc(100% - 20px);
+    padding: 8px 10px;
+  }
+  
+  .model-selector-simple {
+    padding: 5px 8px;
+  }
+  
+  .current-model {
+    max-width: 100px;
+  }
+  
+  .bottom-button {
+    padding: 5px 8px;
+  }
+  
+  .bottom-button span {
+    display: none;
+  }
+  
+  .chat-input {
+    padding: 10px;
+    width: calc(100% - 20px);
+  }
+  
+  .chat-input input {
+    padding: 10px;
+  }
+  
+  .settings-panel,
+  .history-panel-left {
+    width: 100%;
+  }
+  
+  .messages-container {
+    max-width: 100%;
+    padding: 0 10px;
+  }
+  
+  .message-content {
+    max-width: 90%;
+  }
+} 

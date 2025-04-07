@@ -1,0 +1,358 @@
+/* Markdown 格式化样式 */
+.message-text {
+  line-height: 1.8;
+  color: #2c3e50;
+  font-size: 1rem;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+/* 标题样式 */
+.message-text h1,
+.message-text h2,
+.message-text h3,
+.message-text h4,
+.message-text h5,
+.message-text h6 {
+  margin: 1.8em 0 0.8em;
+  font-weight: 700;
+  line-height: 1.3;
+  color: #1a1a1a;
+  letter-spacing: -0.02em;
+}
+
+.message-text h1 {
+  font-size: 2.2em;
+  border-bottom: 3px solid #f0f0f0;
+  padding-bottom: 0.4em;
+  margin-top: 1.2em;
+}
+
+.message-text h2 {
+  font-size: 1.8em;
+  border-bottom: 2px solid #f0f0f0;
+  padding-bottom: 0.3em;
+}
+
+.message-text h3 {
+  font-size: 1.5em;
+  color: #2c3e50;
+}
+
+.message-text h4 {
+  font-size: 1.3em;
+  color: #34495e;
+}
+
+.message-text h5 {
+  font-size: 1.1em;
+  color: #4a5568;
+}
+
+.message-text h6 {
+  font-size: 1em;
+  color: #718096;
+}
+
+/* 段落和文本样式 */
+.message-text p {
+  margin: 1.2em 0;
+  line-height: 1.8;
+  color: #2d3748;
+}
+
+.message-text strong {
+  font-weight: 700;
+  color: #1a1a1a;
+  background: linear-gradient(transparent 60%, #ffd700 40%);
+  padding: 0 2px;
+}
+
+.message-text em {
+  font-style: italic;
+  color: #4a5568;
+  background: linear-gradient(transparent 60%, #e2e8f0 40%);
+  padding: 0 2px;
+}
+
+.message-text del {
+  text-decoration: line-through;
+  color: #a0aec0;
+  background: linear-gradient(transparent 60%, #feb2b2 40%);
+  padding: 0 2px;
+}
+
+.message-text code {
+  font-family: 'Fira Code', 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+  font-size: 0.9em;
+  background-color: #f8f9fa;
+  padding: 0.2em 0.4em;
+  border-radius: 4px;
+  color: #e53e3e;
+  border: 1px solid #e2e8f0;
+}
+
+/* 列表样式 */
+.message-text ul,
+.message-text ol {
+  margin: 1.2em 0;
+  padding-left: 2.2em;
+}
+
+.message-text ul {
+  list-style-type: disc;
+}
+
+.message-text ol {
+  list-style-type: decimal;
+}
+
+.message-text li {
+  margin: 0.6em 0;
+  line-height: 1.8;
+}
+
+.message-text li > p {
+  margin: 0.6em 0;
+}
+
+.message-text li > ul,
+.message-text li > ol {
+  margin: 0.6em 0;
+}
+
+/* 引用块样式 */
+.message-text blockquote {
+  margin: 1.5em 0;
+  padding: 1em 1.5em;
+  border-left: 4px solid #4299e1;
+  color: #4a5568;
+  background-color: #f8fafc;
+  border-radius: 0 6px 6px 0;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.message-text blockquote p {
+  margin: 0.5em 0;
+  font-style: italic;
+}
+
+/* 分割线样式 */
+.message-text hr {
+  height: 2px;
+  border: none;
+  background: linear-gradient(to right, transparent, #4299e1, transparent);
+  margin: 2.5em 0;
+}
+
+/* 表格样式 */
+.message-text table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  margin: 1.5em 0;
+  overflow-x: auto;
+  display: block;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.message-text table th,
+.message-text table td {
+  padding: 0.75em 1em;
+  border: 1px solid #e2e8f0;
+}
+
+.message-text table th {
+  background-color: #f8fafc;
+  font-weight: 600;
+  color: #2d3748;
+  border-bottom: 2px solid #e2e8f0;
+}
+
+.message-text table tr:nth-child(even) {
+  background-color: #f8fafc;
+}
+
+.message-text table tr:hover {
+  background-color: #f0f9ff;
+}
+
+/* 链接样式 */
+.message-text a {
+  color: #4299e1;
+  text-decoration: none;
+  border-bottom: 2px solid rgba(66, 153, 225, 0.2);
+  transition: all 0.2s ease;
+  padding-bottom: 2px;
+}
+
+.message-text a:hover {
+  color: #2b6cb0;
+  border-bottom-color: #4299e1;
+}
+
+/* 图片样式 */
+.message-text img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 8px;
+  margin: 1.5em 0;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  transition: transform 0.3s ease;
+}
+
+.message-text img:hover {
+  transform: scale(1.02);
+}
+
+/* 任务列表样式 */
+.message-text .task-list-item {
+  list-style-type: none;
+  margin-left: -1.5em;
+}
+
+.message-text .task-list-item-checkbox {
+  margin-right: 0.5em;
+  accent-color: #4299e1;
+}
+
+/* 行内代码块样式 */
+.message-text .inline-code {
+  font-family: 'Fira Code', 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+  font-size: 0.9em;
+  background-color: #f8f9fa;
+  padding: 0.2em 0.4em;
+  border-radius: 4px;
+  color: #e53e3e;
+  border: 1px solid #e2e8f0;
+}
+
+/* 代码块样式 */
+.message-text pre {
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  padding: 1.2em;
+  overflow-x: auto;
+  margin: 1.5em 0;
+  position: relative;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e2e8f0;
+}
+
+.message-text pre code {
+  font-family: 'Fira Code', 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+  font-size: 0.9em;
+  line-height: 1.6;
+  color: #000000;
+  background-color: transparent;
+  padding: 0;
+  border-radius: 0;
+  border: none;
+}
+
+/* 代码高亮 */
+.message-text pre .hljs-keyword,
+.message-text pre .hljs-selector-tag,
+.message-text pre .hljs-selector-class {
+  color: #d73a49;
+}
+
+.message-text pre .hljs-string,
+.message-text pre .hljs-attr {
+  color: #032f62;
+}
+
+.message-text pre .hljs-title,
+.message-text pre .hljs-class .hljs-title,
+.message-text pre .hljs-title.class_ {
+  color: #6f42c1;
+}
+
+.message-text pre .hljs-comment,
+.message-text pre .hljs-quote {
+  color: #6a737d;
+  font-style: italic;
+}
+
+.message-text pre .hljs-number,
+.message-text pre .hljs-symbol,
+.message-text pre .hljs-bullet {
+  color: #005cc5;
+}
+
+.message-text pre .hljs-function,
+.message-text pre .hljs-built_in {
+  color: #6f42c1;
+}
+
+.message-text pre .hljs-tag {
+  color: #22863a;
+}
+
+.message-text pre .hljs-name {
+  color: #005cc5;
+}
+
+.message-text pre .hljs-variable,
+.message-text pre .hljs-literal {
+  color: #e36209;
+}
+
+.message-text pre .hljs-regexp {
+  color: #032f62;
+}
+
+/* 数学公式样式 */
+.message-text .math-inline {
+  display: inline-block;
+  vertical-align: middle;
+  padding: 0.2em 0.4em;
+  margin: 0 0.1em;
+  background-color: #f8fafc;
+  border-radius: 4px;
+  border: 1px solid #e2e8f0;
+}
+
+.message-text .math-block {
+  display: block;
+  margin: 1.5em 0;
+  padding: 1.2em;
+  background-color: #f8fafc;
+  border-radius: 8px;
+  overflow-x: auto;
+  text-align: center;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+/* 移动端适配 */
+@media (max-width: 768px) {
+  .message-text {
+    font-size: 0.95rem;
+    line-height: 1.7;
+  }
+
+  .message-text h1 {
+    font-size: 1.8em;
+  }
+
+  .message-text h2 {
+    font-size: 1.5em;
+  }
+
+  .message-text h3 {
+    font-size: 1.3em;
+  }
+
+  .message-text pre {
+    padding: 1em;
+    border-radius: 6px;
+  }
+
+  .message-text table {
+    font-size: 0.9em;
+  }
+
+  .message-text blockquote {
+    padding: 0.8em 1.2em;
+  }
+} 

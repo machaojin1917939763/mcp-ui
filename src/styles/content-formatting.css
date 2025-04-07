@@ -1,0 +1,440 @@
+/* 代码块样式优化 */
+.message-text pre {
+  background-color: #f6f8fa;
+  border-radius: 8px;
+  padding: 16px;
+  margin: 1em 0;
+  overflow-x: auto;
+  position: relative;
+  transition: all 0.3s ease;
+}
+
+.message-text pre:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  border-color: #d0d7de;
+}
+
+.message-text pre code {
+  background-color: transparent;
+  padding: 0;
+  font-size: 0.9em;
+  line-height: 1.5;
+  display: block;
+}
+
+/* 代码块语言标识 */
+.message-text pre:before {
+  content: attr(data-language);
+  position: absolute;
+  top: 0;
+  left: 0;
+  font-size: 0.75rem;
+  color: #888;
+  background: #f6f8fa;
+  padding: 4px 8px;
+  border-radius: 0 0 4px 0;
+  z-index: 1;
+}
+
+/* 代码块复制按钮 */
+.message-text pre .code-copy-button {
+  position: absolute;
+  top: 0;
+  right: 0;
+  padding: 4px 8px;
+  background: rgba(255, 255, 255, 0.9);
+  border: none;
+  border-radius: 0 8px 0 4px;
+  font-size: 0.75rem;
+  color: #57606a;
+  cursor: pointer;
+  opacity: 0;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  z-index: 1;
+}
+
+.message-text pre:hover .code-copy-button {
+  opacity: 1;
+}
+
+.message-text pre .code-copy-button:hover {
+  background: white;
+  color: #24292f;
+}
+
+.message-text pre .code-copy-button.copied {
+  color: #2ea44f;
+}
+
+/* 移除多余的包裹层样式 */
+.message-text .code-block-wrapper {
+  position: relative;
+  margin: 1em 0;
+}
+
+.message-text .code-block-wrapper pre {
+  margin: 0;
+}
+
+/* 确保代码内容不会被遮挡 */
+.message-text pre {
+  padding-top: 32px; /* 为语言标识留出空间 */
+}
+
+/* 代码块悬停效果 */
+.message-text pre {
+  transition: all 0.3s ease;
+}
+
+.message-text pre:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  border-color: #d0d7de;
+}
+
+/* 表格样式优化 */
+.message-text table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1em 0;
+  overflow-x: auto;
+  display: block;
+}
+
+.message-text table th,
+.message-text table td {
+  padding: 8px 12px;
+  border: 1px solid #eaeaea;
+}
+
+.message-text table th {
+  background-color: #f6f8fa;
+  font-weight: 600;
+}
+
+.message-text table tr:nth-child(even) {
+  background-color: #f6f8fa;
+}
+
+/* 表格悬停效果 */
+.message-text table tr {
+  transition: background-color 0.2s ease;
+}
+
+.message-text table tr:hover {
+  background-color: #f6f8fa;
+}
+
+/* 链接样式优化 */
+.message-text a {
+  color: #0969da;
+  text-decoration: none;
+  border-bottom: 1px solid rgba(9, 105, 218, 0.2);
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.message-text a:hover {
+  color: #0a4b9c;
+  border-bottom-color: #0969da;
+}
+
+.message-text a:after {
+  content: '';
+  position: absolute;
+  width: 100%;
+  height: 1px;
+  bottom: -1px;
+  left: 0;
+  background-color: #0969da;
+  transform: scaleX(0);
+  transform-origin: right;
+  transition: transform 0.3s ease;
+}
+
+.message-text a:hover:after {
+  transform: scaleX(1);
+  transform-origin: left;
+}
+
+/* 图片样式优化 */
+.message-text img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 8px;
+  margin: 1em 0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+}
+
+.message-text img:hover {
+  transform: scale(1.02);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+}
+
+/* 引用块样式 */
+.message-text blockquote {
+  border-left: 4px solid #dfe2e5;
+  padding: 0 1em;
+  color: #6a737d;
+  margin: 1em 0;
+  transition: all 0.3s ease;
+}
+
+.message-text blockquote:hover {
+  background-color: #f0f4f8;
+  border-left-color: #0969da;
+}
+
+/* 列表样式 */
+.message-text li {
+  transition: all 0.2s ease;
+  padding: 2px 4px;
+  border-radius: 4px;
+}
+
+.message-text li:hover {
+  background-color: #f6f8fa;
+}
+
+/* 代码复制按钮样式 */
+.code-copy-button {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: rgba(255, 255, 255, 0.8);
+  border: 1px solid #eaeaea;
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 0.75rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  opacity: 0;
+  transition: all 0.2s ease;
+  color: #555;
+  z-index: 2;
+}
+
+.code-copy-button:hover {
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.code-copy-button.copied {
+  background-color: #e7f7f0;
+  color: #10a37f;
+  border-color: #10a37f;
+}
+
+/* 代码块包装器 */
+.code-block-wrapper {
+  margin: 16px 0;
+  border-radius: 8px;
+  overflow: hidden;
+  background-color: #f8f9fa;
+  border: 1px solid #eaeaea;
+  position: relative;
+}
+
+/* 语言标识区域 */
+.code-block-wrapper::before {
+  content: attr(data-language);
+  display: block;
+  padding: 4px 12px;
+  background-color: #f1f2f3;
+  border-bottom: 1px solid #eaeaea;
+  color: #666;
+  font-size: 12px;
+  font-family: var(--font-sans);
+  font-weight: 500;
+}
+
+.code-block-wrapper pre {
+  margin: 0;
+  padding: 16px;
+  overflow-x: auto;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  line-height: 1.6;
+  background-color: transparent;
+}
+
+/* 代码块内复制按钮 */
+.code-block-wrapper .code-copy-button {
+  position: absolute;
+  top: 3px;
+  right: 8px;
+  background: transparent;
+  border: none;
+  padding: 3px 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: #666;
+  font-size: 12px;
+  opacity: 0;
+  transition: opacity 0.2s;
+  z-index: 5;
+}
+
+.code-block-wrapper:hover .code-copy-button {
+  opacity: 1;
+}
+
+.code-block-wrapper .code-copy-button:hover {
+  color: #333;
+}
+
+.code-block-wrapper .code-copy-button.copied {
+  color: #10a37f;
+}
+
+/* 代码高亮主题 */
+.hljs {
+  background: transparent !important;
+  padding: 0 !important;
+  color: #383a42;
+}
+
+.hljs-comment,
+.hljs-quote {
+  color: #a0a1a7;
+  font-style: italic;
+}
+
+.hljs-doctag,
+.hljs-keyword,
+.hljs-formula {
+  color: #a626a4;
+}
+
+.hljs-section,
+.hljs-name,
+.hljs-selector-tag,
+.hljs-deletion,
+.hljs-subst {
+  color: #e45649;
+}
+
+.hljs-literal {
+  color: #0184bb;
+}
+
+.hljs-string,
+.hljs-regexp,
+.hljs-addition,
+.hljs-attribute,
+.hljs-meta .hljs-string {
+  color: #50a14f;
+}
+
+.hljs-attr,
+.hljs-variable,
+.hljs-template-variable,
+.hljs-type,
+.hljs-selector-class,
+.hljs-selector-attr,
+.hljs-selector-pseudo,
+.hljs-number {
+  color: #986801;
+}
+
+.hljs-symbol,
+.hljs-bullet,
+.hljs-link,
+.hljs-meta,
+.hljs-selector-id,
+.hljs-title {
+  color: #4078f2;
+}
+
+.hljs-built_in,
+.hljs-title.class_,
+.hljs-class .hljs-title {
+  color: #c18401;
+}
+
+.hljs-emphasis {
+  font-style: italic;
+}
+
+.hljs-strong {
+  font-weight: bold;
+}
+
+.hljs-link {
+  text-decoration: underline;
+}
+
+/* 数学公式样式 */
+.math-inline {
+  display: inline-block;
+  vertical-align: middle;
+  padding: 0 2px;
+  margin: 0 2px;
+  background-color: rgba(248, 249, 250, 0.5);
+  border-radius: 3px;
+}
+
+.math-block {
+  display: block;
+  margin: 16px 0;
+  background-color: #f8f9fa;
+  border-radius: 6px;
+  overflow-x: auto;
+  padding: 16px;
+  border: 1px solid #eaeaea;
+  text-align: center;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
+}
+
+/* KaTeX公式样式 */
+.katex {
+  font-size: 1.1em;
+  line-height: 1.5;
+}
+
+.message-text .math-block .katex-display {
+  margin: 0;
+  padding: 0;
+  overflow-x: auto;
+}
+
+.message-text .math-block .katex-display > .katex {
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 2px 0;
+}
+
+/* 增强公式互动性 */
+.math-block:hover {
+  background-color: #f0f0f0;
+  border-color: #d0d7de;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+/* 确保公式不被截断 */
+.math-inline .katex, .math-block .katex {
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+/* 数学公式错误样式 */
+.math-error {
+  display: inline-block;
+  padding: 2px 6px;
+  margin: 0 2px;
+  background-color: #fef1f1;
+  border: 1px solid #fdd;
+  border-radius: 3px;
+  color: #d00;
+  font-family: monospace;
+  font-size: 0.9em;
+} 

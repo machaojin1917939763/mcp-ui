@@ -1,0 +1,192 @@
+/* 消息组样式 */
+.message-group {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  margin-bottom: 32px;
+  width: 100%;
+  animation: message-group-appear 0.4s ease-out;
+}
+
+/* 聊天消息区域 */
+.chat-messages {
+  position: relative;
+  flex: 1;
+  overflow-y: auto;
+  scroll-behavior: smooth;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.messages-container {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  padding-bottom: 15px;
+  overflow-y: auto;
+  width: calc(100% - 30px);
+  max-width: 768px;
+  margin: 0 auto;
+}
+
+.message {
+  display: flex;
+  gap: 0;
+  width: 100%;
+  animation: message-appear 0.4s ease-out;
+  transform-origin: bottom;
+  margin-bottom: 5px;
+}
+
+.message.user {
+  justify-content: flex-end;
+  max-width: 95%;
+  margin-left: auto;
+  margin-right: 0;
+}
+
+.message.assistant {
+  justify-content: flex-start;
+  max-width: 95%;
+  margin-right: auto;
+  margin-left: 0;
+}
+
+.assistant .message-avatar {
+  background-color: #e7eef7;
+  color: #1064a3;
+}
+
+/* 消息内容容器 */
+.message-content {
+  padding: 16px 20px;
+  border-radius: 16px;
+  position: relative;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  max-width: 85%;
+  transition: all 0.3s ease;
+}
+
+/* 用户消息样式 */
+.user .message-content {
+  background: linear-gradient(135deg, #4a90e2, #357abd);
+  color: white;
+  border-radius: 16px 16px 4px 16px;
+  margin-left: auto;
+}
+
+/* AI消息样式 */
+.assistant .message-content {
+  background: #ffffff;
+  border: none;
+  border-radius: 16px 16px 16px 4px;
+  margin-right: auto;
+  box-shadow: none;
+}
+
+.message.typing .message-content {
+  display: flex;
+  align-items: center;
+  min-width: 60px;
+}
+
+.typing-indicator {
+  display: flex;
+  gap: 4px;
+}
+
+.typing-indicator span {
+  width: 8px;
+  height: 8px;
+  background-color: #aaa;
+  border-radius: 50%;
+  animation: typing 1.4s infinite ease-in-out;
+}
+
+.typing-indicator span:nth-child(1) {
+  animation-delay: 0s;
+}
+
+.typing-indicator span:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.typing-indicator span:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+/* 生成中指示器 */
+.generating-indicator {
+  display: flex;
+  gap: 4px;
+  margin-top: 8px;
+  margin-bottom: 4px;
+}
+
+.generating-indicator span {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: #3498db;
+  opacity: 0.6;
+  animation: pulse 1s infinite ease-in-out;
+}
+
+.generating-indicator span:nth-child(1) {
+  animation-delay: 0s;
+}
+
+.generating-indicator span:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.generating-indicator span:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+/* 消息时间显示 */
+.message-time {
+  font-size: 0.7rem;
+  color: rgba(44, 62, 80, 0.5);
+  margin-top: 5px;
+  text-align: right;
+}
+
+.user .message-time {
+  color: #777;
+  text-align: right;
+}
+
+.user .copy-message-button {
+  color: #777;
+}
+
+.user .copy-message-button:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+.user .copy-message-button.copied {
+  color: #555;
+  opacity: 1;
+}
+
+.assistant .message-time {
+  text-align: right;
+}
+
+/* 消息悬停效果 */
+.message-content {
+  transition: all 0.3s ease;
+}
+
+.user .message-content:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.assistant .message-content:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  border-color: #d0d7de;
+} 
