@@ -32,6 +32,7 @@
             <li @click="useExample('查询北京的天气')">查询北京的天气</li>
             <li @click="useExample('获取最新的科技新闻')">获取最新的科技新闻</li>
             <li @click="useExample('请详细介绍Markdown语法，包括标题、列表、代码块、表格等，并用实际例子展示。')">Markdown语法演示</li>
+            <li @click="useExample('请用LaTeX格式展示一些经典数学公式，包括行内公式和块级公式，例如欧拉公式、牛顿二定律、复杂积分等')">数学公式展示</li>
           </ul>
         </div>
       </div>

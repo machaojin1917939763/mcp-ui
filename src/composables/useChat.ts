@@ -6,12 +6,17 @@ import { useUIState } from './useUIState';
 import type { AxiosError } from 'axios';
 import { marked } from 'marked';
 import hljs from 'highlight.js';
+import katex from 'katex';
 
 // 设置marked选项
 marked.setOptions({
   breaks: true, // 将换行符转换为<br>
   gfm: true     // 使用GitHub风格的Markdown
 });
+
+// 自定义数学公式正则表达式 - 修复后更灵活的匹配
+const inlineMathRegex = /\$(.+?)\$/g;
+const blockMathRegex = /\$\$([\s\S]+?)\$\$/g;
 
 // 自定义高亮函数
 function highlightCode(code: string, language?: string): string {
@@ -255,9 +260,18 @@ export function useChat() {
         code: string;
       }
       
+      // 数学公式接口定义
+      interface MathBlock {
+        isInline: boolean;
+        expression: string;
+      }
+      
+      // 保存的数学公式
+      const mathBlocks: MathBlock[] = [];
+      
       // 处理代码块，保存它们以避免被marked处理
       const codeBlocks: CodeBlock[] = [];
-      const processedContent = decodedContent.replace(/```(\w*)\n([\s\S]+?)```/g, (match, language, code) => {
+      let processedContent = decodedContent.replace(/```(\w*)\n([\s\S]+?)```/g, (match, language, code) => {
         // 为HTML代码特殊处理
         if (language === 'html') {
           // 在这里解码HTML实体，以便正确显示
@@ -265,6 +279,35 @@ export function useChat() {
         }
         const id = `CODE_BLOCK_${codeBlocks.length}`;
         codeBlocks.push({ language, code });
+        return id;
+      });
+      
+      // 提取并保存行内数学公式
+      processedContent = processedContent.replace(inlineMathRegex, (match, expression) => {
+        // 排除可能是代码中的美元符号
+        if (expression.trim() === '' || expression.includes('\n')) {
+          return match;
+        }
+
+        // 处理表达式
+        const cleanExpression = expression.trim().replace(/,\s/g, ' ');
+        console.log('找到行内公式:', cleanExpression);
+        const id = `MATH_BLOCK_${mathBlocks.length}`;
+        mathBlocks.push({ isInline: true, expression: cleanExpression });
+        return id;
+      });
+      
+      // 提取并保存块级数学公式
+      processedContent = processedContent.replace(blockMathRegex, (match, expression) => {
+        if (expression.trim() === '') {
+          return match;
+        }
+        
+        // 处理表达式，替换数学公式中的逗号加空格为单纯的空格
+        const cleanExpression = expression.trim().replace(/,\s/g, ' ');
+        console.log('找到块级公式:', cleanExpression);
+        const id = `MATH_BLOCK_${mathBlocks.length}`;
+        mathBlocks.push({ isInline: false, expression: cleanExpression });
         return id;
       });
       
@@ -277,18 +320,20 @@ export function useChat() {
         return content;
       }
       
-      // 还原代码块
+      // 还原代码块和数学公式
       let html = htmlResult;
+      
+      // 还原代码块
       codeBlocks.forEach((block, index) => {
         const id = `CODE_BLOCK_${index}`;
         
         // 应用代码高亮
         const highlightedCode = block.language ? highlightCode(block.code, block.language) : highlightCode(block.code);
         
-        // 创建包含复制按钮的代码块HTML
+        // 创建简洁的代码块HTML，把语言标识作为wrapper的data-language属性
         const codeBlockHTML = `
-          <div class="code-block-wrapper">
-            <pre data-language="${block.language || '代码'}"><code class="hljs ${block.language ? `language-${block.language}` : ''}">${highlightedCode}</code></pre>
+          <div class="code-block-wrapper" data-language="${block.language || '代码'}">
+            <pre><code class="hljs ${block.language ? `language-${block.language}` : ''}">${highlightedCode}</code></pre>
             <button class="code-copy-button" onclick="window.copyCode(this)">
               <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
@@ -301,6 +346,47 @@ export function useChat() {
         
         // 替换ID为代码块HTML
         html = html.replace(id, codeBlockHTML);
+      });
+      
+      // 还原数学公式
+      mathBlocks.forEach((block, index) => {
+        const id = `MATH_BLOCK_${index}`;
+        
+        try {
+          console.log(`尝试渲染公式: ${block.expression}, 行内: ${block.isInline}`);
+          
+          // 使用KaTeX渲染数学公式
+          const renderedMath = katex.renderToString(block.expression, {
+            displayMode: !block.isInline,
+            throwOnError: false,
+            output: 'html',
+            strict: false,
+            trust: true,
+            macros: {
+              "\\f": "f(#1)"
+            },
+            fleqn: false
+          });
+          
+          console.log('公式渲染成功');
+          
+          // 创建包装器，为行内和块级公式提供不同的样式
+          const mathHTML = block.isInline
+            ? `<span class="math-inline">${renderedMath}</span>`
+            : `<div class="math-block">${renderedMath}</div>`;
+          
+          // 替换ID为渲染后的数学公式
+          html = html.replace(id, mathHTML);
+        } catch (error) {
+          console.error(`渲染数学公式时出错: ${block.expression}`, error);
+          
+          // 如果公式渲染失败，保留原始公式文本
+          const fallbackHTML = block.isInline 
+            ? `<span class="math-error">$${block.expression}$</span>` 
+            : `<div class="math-error">$$${block.expression}$$</div>`;
+          
+          html = html.replace(id, fallbackHTML);
+        }
       });
       
       return html;

@@ -681,7 +681,7 @@
                 <select 
                   id="codeTheme" 
                   :value="currentTheme" 
-                  @change="updateCodeTheme($event.target.value)" 
+                  @change="updateCodeTheme($event)" 
                   class="styled-select"
                 >
                   <option v-for="theme in codeThemes" :key="theme.id" :value="theme.id">
@@ -691,32 +691,21 @@
                 
                 <div class="theme-preview">
                   <div class="preview-label">主题预览:</div>
-                  <div class="code-block-wrapper preview-code-block">
-                    <div class="code-block-header">
-                      <span class="code-language">javascript</span>
-                      <button class="copy-btn">
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                          <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-                          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-                        </svg>
-                        <span>复制</span>
-                      </button>
-                    </div>
+                  <div class="code-block-wrapper" data-language="javascript">
                     <pre><code class="hljs language-javascript">
-                          function greeting(name) {
-                          console.log(`Hello, ${name}!`);
-                          return {
-                              message: `欢迎, ${name}`,
-                              timestamp: new Date().toLocaleString()
-                          };
-                          }
-
-                          // 示例对象
-                          const user = {
-                          name: '张三',
-                          age: 28,
-                          isActive: true
-                          };</code></pre>
+function example() {
+  const greeting = 'Hello World';
+  console.log(greeting);
+  return greeting;
+}
+                    </code></pre>
+                    <button class="code-copy-button">
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                      </svg>
+                      <span>复制</span>
+                    </button>
                   </div>
                 </div>
               </div>
@@ -913,10 +902,9 @@ const updateCustomModelId = (value: string) => {
 };
 
 // 更新主题选择
-const updateCodeTheme = (theme: string) => {
-  currentTheme.value = theme;
-  localStorage.setItem('codeTheme', theme);
-  loadCodeTheme(theme);
+const updateCodeTheme = (event: Event) => {
+  const value = (event.target as HTMLSelectElement).value;
+  loadCodeTheme(value);
 };
 
 // 控制表单显示
