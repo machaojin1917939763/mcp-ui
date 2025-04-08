@@ -2,8 +2,6 @@
   <div 
     class="chat-header" 
     :class="{ 'visible': isVisible }"
-    @mouseenter="showHeader" 
-    @mouseleave="hideHeader"
   >
     <div class="header-title">
       <h2>
@@ -56,7 +54,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue';
+import { ref } from 'vue';
 
 defineProps({
   providerId: {
@@ -79,8 +77,7 @@ defineProps({
 
 const emit = defineEmits(['clear-chat', 'toggle-settings']);
 
-const isVisible = ref(false);
-const timeout = ref<number | null>(null);
+const isVisible = ref(true);
 
 const clearChat = () => {
   emit('clear-chat');
@@ -90,57 +87,6 @@ const toggleSettings = () => {
   emit('toggle-settings');
 };
 
-const showHeader = () => {
-  // 清除定时器
-  if (timeout.value) {
-    clearTimeout(timeout.value);
-    timeout.value = null;
-  }
-  isVisible.value = true;
-};
-
-const hideHeader = () => {
-  // 延迟隐藏，防止过快消失
-  timeout.value = setTimeout(() => {
-    isVisible.value = false;
-  }, 300);
-};
-
-// 在组件挂载时，创建一个检测顶部区域的事件监听器
-onMounted(() => {
-  // 页面加载时显示一下，然后隐藏
-  showHeader();
-  setTimeout(hideHeader, 2000);
-  
-  // 创建一个触发区域监听器，当鼠标移动到页面顶部时显示
-  const handleMousePosition = (e: MouseEvent) => {
-    if (e.clientY < 50) {
-      showHeader();
-    } else if (e.clientY > 100 && isVisible.value && !timeout.value) {
-      hideHeader();
-    }
-  };
-  
-  document.addEventListener('mousemove', handleMousePosition);
-  
-  // 保存函数引用以便清理
-  (window as any)._chatHeaderMouseHandler = handleMousePosition;
-});
-
-// 清理函数
-onUnmounted(() => {
-  // 移除事件监听器
-  if ((window as any)._chatHeaderMouseHandler) {
-    document.removeEventListener('mousemove', (window as any)._chatHeaderMouseHandler);
-    delete (window as any)._chatHeaderMouseHandler;
-  }
-  
-  // 清除任何剩余的超时
-  if (timeout.value) {
-    clearTimeout(timeout.value);
-    timeout.value = null;
-  }
-});
 </script>
 
 <style scoped>
@@ -149,7 +95,7 @@ onUnmounted(() => {
   top: 0;
   left: 0;
   right: 0;
-  padding: 1rem;
+  padding: 2rem;
   display: flex;
   justify-content: space-between;
   align-items: center;

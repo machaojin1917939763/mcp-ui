@@ -346,7 +346,10 @@ function startMCPServer() {
     ELECTRON_RUN_AS_NODE: '1', // 确保子进程以Node模式运行
     NODE_PATH: modulesPath, // 确保能找到依赖模块
     // 添加额外的调试信息
-    MCP_LOG_LEVEL: 'DEBUG' // 设置服务器日志级别为DEBUG以获取更多信息
+    MCP_LOG_LEVEL: 'DEBUG', // 设置服务器日志级别为DEBUG以获取更多信息
+    // 防止显示窗口的额外环境变量
+    NO_WINDOW: '1',
+    RUNNING_IN_ELECTRON: '1'
   };
 
   try {
@@ -367,8 +370,24 @@ function startMCPServer() {
         
         // 启动服务器进程
         serverProcess = fork(serverPath, [], {
-          env,
-          stdio: ['pipe', 'pipe', 'pipe', 'ipc']
+          env: {
+            ...env,
+            // 防止显示窗口的额外环境变量
+            NO_WINDOW: '1',
+            RUNNING_IN_ELECTRON: '1'
+          },
+          stdio: ['pipe', 'pipe', 'pipe', 'ipc'],
+          // 在Windows平台下隐藏命令窗口
+          windowsHide: true,
+          detached: process.platform === 'win32',
+          shell: false,
+          // 对Windows平台，使用更底层的隐藏技术
+          ...(process.platform === 'win32' ? {
+            // Windows创建进程标志
+            windowsVerbatimArguments: true,
+            // 创建时隐藏窗口
+            creation_flags: 0x08000000 // CREATE_NO_WINDOW 标志
+          } : {})
         });
         
         // 设置日志记录
@@ -430,8 +449,24 @@ function startMCPServer() {
         
         // 继续尝试启动服务器
         serverProcess = fork(serverPath, [], {
-          env,
-          stdio: ['pipe', 'pipe', 'pipe', 'ipc']
+          env: {
+            ...env,
+            // 防止显示窗口的额外环境变量
+            NO_WINDOW: '1',
+            RUNNING_IN_ELECTRON: '1'
+          },
+          stdio: ['pipe', 'pipe', 'pipe', 'ipc'],
+          // 在Windows平台下隐藏命令窗口
+          windowsHide: true,
+          detached: process.platform === 'win32',
+          shell: false,
+          // 对Windows平台，使用更底层的隐藏技术
+          ...(process.platform === 'win32' ? {
+            // Windows创建进程标志
+            windowsVerbatimArguments: true,
+            // 创建时隐藏窗口
+            creation_flags: 0x08000000 // CREATE_NO_WINDOW 标志
+          } : {})
         });
         
         // 设置日志记录

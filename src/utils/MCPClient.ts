@@ -4,13 +4,6 @@ import { getDefaultModelId, getProviderById, getDefaultProviderId } from '../ser
 import type { MCPServerConfig } from '../composables/useMCPSettings';
 import MCPService from '../services/MCPService';
 
-// 定义STDIO服务器管理器类型
-interface StdioManager {
-  process: any; // 子进程
-  connected: boolean;
-  toolsPromise: Promise<any> | null;
-}
-
 interface Tool {
   name: string;
   description: string;
@@ -36,11 +29,73 @@ export class MCPClient {
   private mcpServers: MCPServerConfig[] = [];
   private mcpTools: Record<string, Tool[]> = {}; // 每个MCP服务器的工具列表
   
+  private async initializeLLMService(apiKey?: string): Promise<void> {
+    try {
+      // 获取提供商ID
+      this.providerId = localStorage.getItem('providerId') || getDefaultProviderId();
+      
+      // 获取API密钥
+      let newApiKey = apiKey || '';
+      if (!newApiKey) {
+        const savedApiKeys = localStorage.getItem('providerApiKeys');
+        if (savedApiKeys) {
+          const apiKeys = JSON.parse(savedApiKeys);
+          if (apiKeys[this.providerId]) {
+            newApiKey = apiKeys[this.providerId];
+          }
+        }
+        // 回退到全局API密钥
+        newApiKey = newApiKey || localStorage.getItem('apiKey') || this.apiKey;
+      }
+      
+      // 如果API密钥有变化，更新它
+      if (newApiKey && newApiKey !== this.apiKey) {
+        this.apiKey = newApiKey;
+      }
+      
+      // 获取模型ID和基础URL
+      const provider = getProviderById(this.providerId);
+      let baseUrl = provider?.baseUrl || '';
+      let modelId = '';
+      
+      if (this.providerId === 'custom') {
+        baseUrl = localStorage.getItem('customBaseUrl') || '';
+        modelId = localStorage.getItem('customModelId') || '';
+        
+        // 如果没有找到自定义模型ID，尝试从自定义模型列表中获取第一个
+        if (!modelId) {
+          try {
+            const customModels = JSON.parse(localStorage.getItem('customModels') || '[]');
+            if (customModels.length > 0) {
+              modelId = customModels[0].id;
+            }
+          } catch (e) {
+            console.error('解析自定义模型列表失败', e);
+          }
+        }
+      } else {
+        modelId = localStorage.getItem('modelId') || getDefaultModelId(this.providerId);
+      }
+      
+      // 创建LLM服务实例
+      this.llmService = new LLMService({
+        apiKey: this.apiKey,
+        baseUrl,
+        model: modelId,
+        providerId: this.providerId
+      });
+      
+      console.log(`初始化LLM服务成功 - 提供商: ${this.providerId}, 模型: ${modelId}, API密钥已设置`);
+    } catch (error) {
+      console.error('初始化LLM服务失败:', error);
+    }
+  }
+
   constructor() {
     // 从环境变量、localStorage和默认值获取配置
     const savedApiKey = localStorage.getItem('apiKey');
     this.apiKey = savedApiKey || import.meta.env.VITE_API_KEY || '';
-    this.serverUrl = import.meta.env.VITE_MCP_SERVER_URL || 'http://localhost:3001'; // 更新默认端口为3001
+    this.serverUrl = import.meta.env.VITE_MCP_SERVER_URL || 'http://localhost:3001';
     this.providerId = localStorage.getItem('providerId') || import.meta.env.VITE_MODEL_PROVIDER || 'openai';
     
     // 获取MCP服务器配置
@@ -59,37 +114,12 @@ export class MCPClient {
     }
     
     // 初始化LLM服务
-    try {
-      // 获取保存的配置
-      const savedModelId = localStorage.getItem('modelId') || getDefaultModelId(this.providerId);
-      const provider = getProviderById(this.providerId);
-      
-      // 处理自定义服务提供商
-      let baseUrl = provider?.baseUrl || '';
-      let modelId = savedModelId || '';
-      
-      if (this.providerId === 'custom') {
-        baseUrl = localStorage.getItem('customBaseUrl') || '';
-        modelId = localStorage.getItem('customModelId') || '';
-      }
-      
-      // 创建LLM服务实例
-      this.llmService = new LLMService({
-        apiKey: this.apiKey,
-        baseUrl: baseUrl,
-        model: modelId,
-        providerId: this.providerId
-      });
-      
-      console.log(`初始化LLM服务成功 - 提供商: ${this.providerId}, 模型: ${modelId}`);
-    } catch (error) {
-      console.error('初始化LLM服务失败:', error);
-    }
+    this.initializeLLMService(this.apiKey);
     
     // 添加系统消息
     this.messageHistory.push({
       role: 'system',
-      content: '你是一个基于MCP协议的智能助手，可以调用各种工具帮助用户完成任务。请提供简洁、有用的回复。'
+      content: '你是一个基于MCP协议的智能助手，可以调用各种工具帮助用户完成任务。在调用工具前，你需要先说明调用那个工具，请提供简洁、有用的回复。'
     });
   }
   
@@ -99,72 +129,6 @@ export class MCPClient {
   async initialize(): Promise<void> {
     console.log('初始化MCP客户端...');
     try {
-      // 重新初始化LLM服务
-      try {
-        // 获取提供商ID
-        this.providerId = localStorage.getItem('providerId') || getDefaultProviderId();
-        
-        // 尝试从提供商特定API密钥中获取API密钥
-        const savedApiKeys = localStorage.getItem('providerApiKeys');
-        let newApiKey = '';
-        
-        if (savedApiKeys) {
-          const apiKeys = JSON.parse(savedApiKeys);
-          if (apiKeys[this.providerId]) {
-            newApiKey = apiKeys[this.providerId];
-          }
-        } else {
-          // 回退到全局API密钥
-          newApiKey = localStorage.getItem('apiKey') || this.apiKey;
-        }
-        
-        // 如果API密钥有变化，更新它
-        if (newApiKey && newApiKey !== this.apiKey) {
-          console.log(`在initialize中发现新的API密钥，正在更新...`);
-          // 立即使用setApiKey方法更新，确保LLMService也会更新
-          this.setApiKey(newApiKey);
-        }
-        
-        // 获取模型ID
-        let modelId = '';
-        const provider = getProviderById(this.providerId);
-        
-        // 处理自定义服务提供商
-        let baseUrl = provider?.baseUrl || '';
-        
-        if (this.providerId === 'custom') {
-          baseUrl = localStorage.getItem('customBaseUrl') || '';
-          modelId = localStorage.getItem('customModelId') || '';
-          
-          // 如果没有找到自定义模型ID，尝试从自定义模型列表中获取第一个
-          if (!modelId) {
-            try {
-              const customModels = JSON.parse(localStorage.getItem('customModels') || '[]');
-              if (customModels.length > 0) {
-                modelId = customModels[0].id;
-              }
-            } catch (e) {
-              console.error('解析自定义模型列表失败', e);
-            }
-          }
-        } else {
-          // 使用标准模型ID
-          modelId = localStorage.getItem('modelId') || getDefaultModelId(this.providerId);
-        }
-        
-        // 创建LLM服务实例
-        this.llmService = new LLMService({
-          apiKey: this.apiKey, // 使用更新后的API密钥
-          baseUrl: baseUrl,
-          model: modelId,
-          providerId: this.providerId
-        });
-        
-        console.log(`初始化LLM服务成功 - 提供商: ${this.providerId}, 模型: ${modelId}, API密钥已设置`);
-      } catch (error) {
-        console.error('初始化LLM服务失败:', error);
-      }
-      
       // 更新MCP服务器配置
       try {
         const savedMcpServers = localStorage.getItem('mcpServers');
@@ -235,11 +199,6 @@ export class MCPClient {
     
     // 等待所有连接完成
     const results = await Promise.all(connectionPromises);
-    
-    // 汇总结果
-    const succeeded = results.filter(r => r.success).map(r => r.serverId);
-    const failed = results.filter(r => !r.success).map(r => r.serverId);
-    
     // 计算总工具数
     const totalTools = results.reduce((sum, result) => {
       return sum + (result.success ? (result as any).toolCount : 0);
@@ -339,7 +298,7 @@ export class MCPClient {
         return tools;
       } else if (server.transport === 'stdio') {
         // 使用MCPService获取工具
-        const tools = await MCPService.getTools(server.id);
+        const tools:any = await MCPService.getTools(server.id);
         // 更新工具缓存
         this.mcpTools[server.id] = tools || [];
       
@@ -821,9 +780,6 @@ export class MCPClient {
         // 使用MCPService连接到服务器
         await MCPService.connectClient(serverConfig.id);
         console.log(`已连接到服务器 ${serverConfig.id}`);
-        
-        // 更新工具列表
-        await this.getMcpServerTools(serverConfig.id);
       } catch (error) {
         console.error(`连接到服务器 ${serverConfig.id} 失败:`, error);
         throw error;
@@ -831,8 +787,6 @@ export class MCPClient {
     } else if (serverConfig.transport === 'sse') {
       // SSE类型服务器的连接逻辑保持不变
       try {
-        // 获取工具列表
-        await this.getMcpServerTools(serverConfig.id);
         console.log(`已连接到SSE服务器 ${serverConfig.id}`);
       } catch (error) {
         console.error(`连接到SSE服务器 ${serverConfig.id} 失败:`, error);
@@ -923,38 +877,9 @@ export class MCPClient {
         toolsMap.set(tool.name, tool);
       }
     }
-    
     // 重建工具列表
     this.availableTools = Array.from(toolsMap.values());
     
     console.log(`工具去重完成，当前工具数量: ${this.availableTools.length}`);
-  }
-
-  /**
-   * 刷新所有可用工具
-   */
-  async refreshTools(): Promise<void> {
-    // 清空工具列表
-    this.availableTools = [];
-    this.mcpTools = {};
-    
-    // 重新连接服务器并加载工具
-    await this.connectEnabledServers();
-    
-    // 尝试加载全局工具
-    try {
-      const globalTools = await MCPService.getTools();
-      if (globalTools && globalTools.length > 0) {
-        // 添加全局工具
-        this.availableTools = [...this.availableTools, ...globalTools];
-      }
-    } catch (error) {
-      console.error('刷新全局工具失败:', error);
-    }
-    
-    // 执行最终去重
-    this.deduplicateTools();
-    
-    console.log('已刷新所有可用工具');
   }
 }

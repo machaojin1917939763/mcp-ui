@@ -80,7 +80,8 @@ interface ToggleToolEvent {
 const props = defineProps({
   serverTools: {
     type: Object as () => ServerTools,
-    required: true
+    required: true,
+    enbled: true
   },
   mcpServers: {
     type: Array as () => ServerConfig[],

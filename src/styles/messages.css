@@ -70,10 +70,8 @@
 
 /* 用户消息样式 */
 .user .message-content {
-  background: linear-gradient(135deg, #4a90e2, #357abd);
-  color: white;
-  border-radius: 16px 16px 4px 16px;
   margin-left: auto;
+  height: auto;
 }
 
 /* AI消息样式 */
@@ -190,3 +188,500 @@
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
   border-color: #d0d7de;
 } 
+
+.chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  /* 添加足够的顶部内边距，为ChatHeader预留空间 */
+  padding-top: 4rem;
+}
+
+.chat-content-wrapper {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  position: relative;
+}
+
+.messages-container {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  padding-bottom: 15px;
+  flex: 1;
+  overflow-y: auto;
+  /* 已经通过全局样式隐藏了滚动条 */
+}
+
+/* 预览图面板样式 */
+.preview-panel {
+  width: 280px;
+  min-width: 280px;
+  border-left: 1px solid #eaeaea;
+  background-color: #fafafa;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  /* 已经通过全局样式隐藏了滚动条 */
+}
+
+.preview-panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  border-bottom: 1px solid #eaeaea;
+  background-color: #f5f5f5;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.preview-panel-header h3 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #333;
+}
+
+.close-preview-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #666;
+}
+
+.close-preview-btn:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+  color: #333;
+}
+
+.preview-images {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.preview-image-wrapper {
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  background-color: white;
+  position: relative;
+}
+
+.preview-image {
+  width: 100%;
+  height: auto;
+  max-height: 250px;
+  object-fit: contain;
+  display: block;
+}
+
+.image-caption {
+  padding: 8px 12px;
+  font-size: 0.85rem;
+  color: #666;
+  text-align: center;
+  border-top: 1px solid #f0f0f0;
+  background-color: #fafafa;
+}
+
+.image-actions {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: flex;
+  gap: 8px;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.preview-image-wrapper:hover .image-actions {
+  opacity: 1;
+}
+
+.open-image-btn,
+.download-image-btn {
+  background-color: rgba(255, 255, 255, 0.9);
+  border: none;
+  border-radius: 4px;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  color: #555;
+  transition: all 0.2s ease;
+}
+
+.open-image-btn:hover,
+.download-image-btn:hover {
+  background-color: white;
+  color: #1064a3;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.15);
+}
+
+/* 平滑滚动效果 */
+.chat-messages {
+  scroll-behavior: smooth;
+}
+
+/* 工具调用容器样式 */
+.tool-calls-container {
+  margin-top: 12px;
+  margin-bottom: 8px;
+  border-top: 1px dashed #e0e0e0;
+  padding-top: 8px;
+}
+
+/* 消息文本样式增强 */
+.message-text {
+  line-height: 1.6;
+  word-break: break-word;
+  font-size: 15px;
+  margin-top: 8px;
+  padding: 5px 0;
+  min-height: 24px;
+}
+
+/* 消息组样式优化 */
+.message-group {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+}
+
+/* 消息内容容器改进 */
+.message .message-content {
+  border-radius: 12px;
+  padding: 12px 16px;
+  position: relative;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  max-width: 90%;
+  width: fit-content;
+}
+
+/* 用户消息 - 轻蓝色渐变（主色调） */
+.user .message-content {
+  background: linear-gradient(135deg, #e3f2fd, #bbdefb); /* 浅蓝到更柔和的蓝 */
+  color: #1a237e; /* 深蓝色文字，保证可读性 */
+  border: 1px solid rgba(255, 255, 255, 0.5); /* 轻微白色边框增强层次 */
+}
+
+/* 通用样式优化 */
+.message-content {
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  padding: 12px 16px;
+  line-height: 1.5;
+  transition: all 0.2s ease; /* 可选：添加悬浮动画 */
+}
+
+/* 悬停效果（可选） */
+.user .message-content:hover {
+  background: linear-gradient(135deg, #d8ebff, #b3d9ff);
+}
+
+/* 修改AI消息样式 */
+.assistant .message-content {
+  background-color: transparent;
+  box-shadow: none;
+}
+
+/* 改进代码块样式 */
+.assistant .message-content :deep(pre) {
+  background-color: #f8f9fa;
+  border-radius: 6px;
+  overflow-x: auto;
+  position: relative;
+  border: 1px solid #eaeaea;
+}
+
+/* 代码块语言标识 */
+.assistant .message-content :deep(pre):before {
+  content: attr(data-language);
+  position: absolute;
+  top: 0;
+  right: 10px;
+  font-size: 0.75rem;
+  color: #888;
+  background: #f8f9fa;
+  padding: 0 8px;
+  border-radius: 0 0 4px 4px;
+  border: 1px solid #eaeaea;
+  border-top: none;
+}
+
+/* 代码块复制按钮 */
+.assistant .message-content :deep(.code-block-wrapper) {
+  position: relative;
+}
+
+.assistant .message-content :deep(.code-copy-button) {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: rgba(255, 255, 255, 0.8);
+  border: 1px solid #eaeaea;
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 0.75rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.assistant .message-content :deep(.code-block-wrapper:hover .code-copy-button) {
+  opacity: 1;
+}
+
+/* 消息操作按钮样式 */
+.message-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 6px;
+}
+
+.message-buttons {
+  display: flex;
+  gap: 4px;
+}
+
+.copy-message-button, .regenerate-button {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  opacity: 0.5;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.copy-message-button:hover, .regenerate-button:hover {
+  opacity: 1;
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+.copy-message-button.copied {
+  color: #10a37f;
+  opacity: 1;
+}
+
+.regenerate-button {
+  color: #3498db;
+}
+
+.regenerate-button:hover {
+  background-color: rgba(52, 152, 219, 0.1);
+}
+
+.user .copy-message-button {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.user .copy-message-button:hover {
+  background-color: rgba(255, 255, 255, 0.2);
+}
+
+.user .copy-message-button.copied {
+  color: #ffffff;
+  opacity: 1;
+}
+
+.assistant .copy-message-button,
+.assistant .regenerate-button {
+  color: rgba(0, 0, 0, 0.6);
+}
+
+/* 时间戳样式优化 */
+.message-time {
+  font-size: 0.75rem;
+  color: rgba(0, 0, 0, 0.4);
+  text-align: left;
+}
+
+.user .message-time {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+/* 复制成功通知样式 */
+:deep(.copy-success-notification) {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  background-color: rgba(16, 163, 127, 0.9);
+  color: white;
+  padding: 8px 16px;
+  border-radius: 4px;
+  font-size: 14px;
+  opacity: 0;
+  transition: all 0.3s ease;
+  z-index: 1000;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+:deep(.copy-success-notification.show) {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+/* 改进的加载指示器 */
+.generating-indicator {
+  display: flex;
+  gap: 4px;
+  margin-top: 10px;
+  margin-bottom: 5px;
+  align-items: center;
+  justify-content: flex-start;
+}
+
+.generating-indicator span {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: #3498db;
+  opacity: 0.7;
+  animation: bounce 1.4s infinite ease-in-out both;
+}
+
+.generating-indicator span:nth-child(1) {
+  animation-delay: -0.32s;
+}
+
+.generating-indicator span:nth-child(2) {
+  animation-delay: -0.16s;
+}
+
+@keyframes bounce {
+  0%, 80%, 100% { 
+    transform: scale(0.6);
+  }
+  40% { 
+    transform: scale(1.0);
+  }
+}
+
+/* 消息进入动画 */
+.message {
+  animation: message-appear 0.3s ease-out;
+  transform-origin: bottom;
+}
+
+@keyframes message-appear {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* 响应式样式 */
+@media (max-width: 768px) {
+  .preview-panel {
+    width: 220px;
+    min-width: 220px;
+  }
+  .message .message-content {
+    max-width: 95%;
+  }
+}
+
+.history-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 10px;
+  /* 删除自定义滚动条样式，使用全局隐藏滚动条的样式 */
+}
+
+/* 删除自定义滚动条样式
+.history-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.history-list::-webkit-scrollbar-thumb {
+  background-color: #ddd;
+  border-radius: 3px;
+}
+*/
+
+/* 保持工具调用清晰分离 */
+.tool-calls-inline {
+  margin: 0 0 16px 0;
+  padding: 12px;
+  border-radius: 8px;
+  background-color: #f3f8ff;
+  border: 1px solid #d0e1fd;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+/* 工具调用状态提示容器样式优化 */
+.tool-call-status-hint {
+  display: flex;
+  align-items: center;
+  font-size: 0.85rem;
+  padding: 6px 10px;
+  margin-top: 10px;
+  color: #4a6586;
+  background-color: rgba(255, 255, 255, 0.7);
+  border-radius: 4px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  border-left: 2px solid #4a6586;
+}
+
+.tool-call-status-hint.processing {
+  color: #1e88e5;
+  background-color: rgba(227, 242, 253, 0.7);
+  border-left-color: #1e88e5;
+}
+
+.status-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 8px;
+}
+
+.status-icon.completed {
+  color: #4caf50;
+}
+
+.status-text {
+  font-weight: 500;
+}
+
+/* 旋转动画 */
+.rotating {
+  animation: rotate 1.5s linear infinite;
+}
+
+@keyframes rotate {
+  100% {
+    transform: rotate(360deg);
+  }
+}

@@ -19,8 +19,8 @@ const logLevels = {
 };
 
 // 默认日志级别，可以从环境变量设置
-const LOG_LEVEL = process.env.MCP_LOG_LEVEL || 'DEBUG';
-const CURRENT_LOG_LEVEL = logLevels[LOG_LEVEL] || logLevels.DEBUG;
+const LOG_LEVEL = process.env.MCP_LOG_LEVEL || 'INFO';
+const CURRENT_LOG_LEVEL = logLevels[LOG_LEVEL] || logLevels.INFO;
 
 // 添加时间戳的日志函数
 function logWithTimestamp(level, message, ...args) {
@@ -278,9 +278,6 @@ async function closeClient(clientName) {
       logger.warn(`关闭客户端连接失败: 客户端 ${clientName} 未连接`);
       return false;
     }
-
-    logger.debug(`正在关闭客户端 ${clientName} 连接...`);
-    await client.disconnect();
     delete mcpClients[clientName];
     logger.info(`已关闭客户端 ${clientName} 连接`);
     return true;
@@ -305,13 +302,6 @@ async function initMCPClient(clientName) {
     command: config.command,
     args: config.args,
     env: config.env,
-    // 添加windowsHide选项，在Windows中隐藏命令窗口
-    options: {
-      windowsHide: true,
-      // 如果需要完全隐藏，可以添加detached和stdio配置
-      detached: process.platform === 'win32',
-      stdio: 'pipe'
-    }
   });
 
   // 创建客户端
@@ -425,19 +415,7 @@ async function initializeToolMappings() {
       logger.info(`没有找到已配置的客户端，工具映射初始化跳过`);
       return;
     }
-
     logger.info(`找到 ${clientNames.length} 个已配置的客户端，开始连接...`);
-
-    // 尝试连接每个客户端并获取工具列表
-    for (const clientName of clientNames) {
-      try {
-        if (!mcpClients[clientName]) {
-          await initMCPClient(clientName);
-        }
-      } catch (error) {
-        logger.error(`初始化客户端 ${clientName} 失败:`, error);
-      }
-    }
     // 保存工具映射
     saveToolMappings();
     logger.info(`工具映射初始化完成，共映射 ${Object.keys(toolToClientMap).length} 个工具`);
@@ -481,12 +459,15 @@ app.post('/mcp/clients', async (req, res) => {
     // 如果客户端已连接，需要先断开连接
     if (mcpClients[name]) {
       logger.debug(`客户端 ${name} 已连接，需要先断开连接`);
-      try {
-        await closeClient(name);
-      } catch (error) {
-        logger.error(`断开已有客户端 ${name} 连接失败:`, error);
-        // 继续处理，不终止流程
-      }
+      return res.json({
+        success: false,
+        message: `客户端 ${name} 已连接，需要先断开连接`,
+        client: {
+          name,
+        ...clientConfigs[name],
+          isConnected: true
+        }
+      });
     }
 
     // 添加/更新配置

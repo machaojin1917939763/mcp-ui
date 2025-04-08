@@ -6,7 +6,7 @@
       "iterm-mcp"
     ],
     "description": "item",
-    "lastUpdated": "2025-04-08T11:14:03.904Z"
+    "lastUpdated": "2025-04-08T12:25:21.539Z"
   },
   "filesystem": {
     "command": "npx",
@@ -16,7 +16,7 @@
       "E:\\VScodeProject"
     ],
     "description": "filesystem",
-    "lastUpdated": "2025-04-08T11:14:05.141Z"
+    "lastUpdated": "2025-04-08T12:17:55.490Z"
   },
   "chrome": {
     "command": "npx",
@@ -25,7 +25,7 @@
       "@automatalabs/mcp-server-playwright"
     ],
     "description": "浏览器",
-    "lastUpdated": "2025-04-08T11:14:06.744Z"
+    "lastUpdated": "2025-04-08T12:25:23.346Z"
   },
   "playwright": {
     "command": "npx",
@@ -34,6 +34,6 @@
       "@executeautomation/playwright-mcp-server"
     ],
     "description": "浏览器",
-    "lastUpdated": "2025-04-08T11:14:09.704Z"
+    "lastUpdated": "2025-04-08T12:25:18.245Z"
   }
 }

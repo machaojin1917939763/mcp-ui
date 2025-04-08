@@ -61,7 +61,6 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue';
-
 interface ToolCallProps {
   toolName: string;
   params: any;
