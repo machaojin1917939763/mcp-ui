@@ -289,8 +289,14 @@ async function closeClient(clientName) {
   }
 }
 
-// 初始化MCP客户端
+// 获取或初始化MCP客户端
 async function initMCPClient(clientName) {
+  // 检查是否已有活跃的客户端存在
+  if (mcpClients[clientName]) {
+    logger.debug(`使用已存在的客户端 ${clientName}`);
+    return mcpClients[clientName];
+  }
+
   const config = clientConfigs[clientName];
   if (!config) {
     logger.error(`初始化客户端 ${clientName} 失败: 未找到配置`);
@@ -579,10 +585,17 @@ app.post('/mcp/tools/call', async (req, res) => {
       logger.info(`未提供clientName，根据工具 ${name} 自动选择客户端 ${targetClientName}`);
     }
     logger.debug(`API请求(兼容): 调用工具: ${name}，使用客户端: ${targetClientName}`);
-    const client = await initMCPClient(targetClientName);
-    if (!client) {
-      logger.warn(`调用工具失败: 客户端 ${targetClientName} 未连接`);
-      return res.status(500).json({ error: `客户端 ${targetClientName} 未连接` });
+    // 获取或初始化客户端
+    let client;
+    try {
+      client = await initMCPClient(targetClientName);
+      if (!client) {
+        logger.warn(`调用工具失败: 客户端 ${targetClientName} 未连接`);
+        return res.status(500).json({ error: `客户端 ${targetClientName} 未连接` });
+      }
+    } catch (clientError) {
+      logger.error(`获取客户端 ${targetClientName} 失败:`, clientError);
+      return res.status(500).json({ error: `获取客户端失败: ${clientError.message}` });
     }
     try {
       // 使用统一的格式调用工具

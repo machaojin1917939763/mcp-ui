@@ -224,10 +224,58 @@ const sendMessage = () => {
             }
           };
           
-          // 构建提示语
-          const processingPrompt = toolCall.success
-            ? `工具 ${toolCall.name} 已完成调用，结果是：${toolResultInfo}。请基于这个结果继续回答用户的问题，如果需要，可以调用其他工具来完成任务。`
-            : `工具 ${toolCall.name} 调用失败：${toolResultInfo}。请考虑其他方法解决问题，或者给出下一步建议。`;
+          // 构建更智能的提示语，帮助AI更好地理解和使用工具结果
+          let processingPrompt = '';
+          
+          if (toolCall.success) {
+            // 根据工具名称和结果类型优化提示语
+            const resultType = typeof toolCall.result;
+            
+            if (toolCall.name.includes('search') || toolCall.name.includes('query') || toolCall.name.includes('find')) {
+              // 搜索类工具
+              processingPrompt = `工具 ${toolCall.name} 已完成搜索，找到以下结果：${toolResultInfo}。
+请仔细分析这些搜索结果，提取关键信息来回答用户的问题。如果结果不完整或不够详细，可以考虑使用其他工具进行补充搜索。`;
+            } else if (toolCall.name.includes('read') || toolCall.name.includes('get') || toolCall.name.includes('fetch')) {
+              // 读取/获取类工具
+              processingPrompt = `工具 ${toolCall.name} 已获取到如下内容：${toolResultInfo}。
+请分析这些内容并提取相关信息来回答用户问题。如需要，您可以继续读取其他相关内容或使用其他工具。`;
+            } else if (toolCall.name.includes('execute') || toolCall.name.includes('run') || toolCall.name.includes('command')) {
+              // 执行命令类工具
+              processingPrompt = `工具 ${toolCall.name} 已执行完毕，执行结果是：${toolResultInfo}。
+请根据执行结果判断操作是否成功，并解释结果含义。如果操作未成功完成，请分析原因并考虑下一步操作。`;
+            } else if (resultType === 'object' || Array.isArray(toolCall.result)) {
+              // 对象或数组类型结果的工具（通常需要更深入分析）
+              processingPrompt = `工具 ${toolCall.name} 返回了复杂数据结构：${toolResultInfo}。
+请详细分析这些数据，提取关键信息并组织成易于理解的格式回答用户。如有需要，可以基于这些数据进一步调用其他工具。`;
+            } else {
+              // 默认成功提示
+              processingPrompt = `工具 ${toolCall.name} 已成功调用，结果是：${toolResultInfo}。
+请基于这个结果继续回答用户的问题，如果需要，可以调用其他工具来完成任务。请分析工具返回的数据并给出清晰的解释。`;
+            }
+          } else {
+            // 根据错误类型提供更具体的失败处理建议
+            if (toolResultInfo.includes('token') || toolResultInfo.includes('超限') || toolResultInfo.includes('过大')) {
+              processingPrompt = `工具 ${toolCall.name} 调用失败：${toolResultInfo}。这可能是因为返回的数据量过大。
+请考虑使用参数限制返回数据量，或尝试其他更精确的工具来获取所需信息。`;
+            } else if (toolResultInfo.includes('权限') || toolResultInfo.includes('permission') || toolResultInfo.includes('access')) {
+              processingPrompt = `工具 ${toolCall.name} 调用失败：${toolResultInfo}。这似乎是权限问题。
+请考虑使用其他可用的工具，或建议用户检查权限设置。`;
+            } else if (toolResultInfo.includes('not found') || toolResultInfo.includes('找不到') || toolResultInfo.includes('不存在')) {
+              processingPrompt = `工具 ${toolCall.name} 调用失败：${toolResultInfo}。请求的资源可能不存在。
+请检查参数是否正确，或尝试使用其他方法查找相关资源。`;
+            } else {
+              // 默认失败提示
+              processingPrompt = `工具 ${toolCall.name} 调用失败：${toolResultInfo}。
+请分析失败原因，考虑其他方法解决问题，或给出下一步建议。`;
+            }
+          }
+          
+          // 添加通用提示，鼓励AI合理规划工具使用
+          processingPrompt += `\n\n请记住:
+1. 合理规划工具使用顺序，先获取信息，再进行分析和操作
+2. 如需要多个工具配合完成任务，请清晰说明每一步的目的
+3. 确保给用户提供完整、准确的回答，并解释你的思考过程
+4. 如果当前工具不足以解决问题，请告知用户并给出替代方案`;
           
           // 创建工具调用结果处理函数，符合MCP客户端规范
           const handleToolCall = async (nextToolCall: {name: string, params: any, result?: any, error?: string, success: boolean}) => {
@@ -590,8 +638,6 @@ const handleRegenerateAnswer = async (groupIndex: number) => {
     return;
   }
   
-  const userQuestion = userMessage.content;
-  
   // 设置加载状态
   isLoading.value = true;
   
@@ -607,242 +653,33 @@ const handleRegenerateAnswer = async (groupIndex: number) => {
       return;
     }
     
-    // 重置现有的AI回答内容，而不是添加新消息
+    // 重置现有的AI回答内容
     messages.value[assistantMessageIndex].content = '';
     messages.value[assistantMessageIndex].isComplete = false;
     messages.value[assistantMessageIndex].toolCalls = [];
     
-    // 滚动到底部（确保新消息可见）
-    setTimeout(() => {
-      const chatMessages = document.querySelector('.chat-messages');
-      if (chatMessages) {
-        chatMessages.scrollTop = chatMessages.scrollHeight;
-      }
-    }, 10);
+    // 设置新的用户消息
+    newMessage.value = userMessage.content;
     
-    // 定义处理流式响应的回调函数
-    const handleStreamChunk = (chunk: string) => {
-      // 更新消息内容
-      if (messages.value[assistantMessageIndex]) {
-        messages.value[assistantMessageIndex].content += chunk;
-      }
-    };
-    
-    // 处理消息并获取流式响应
-    let currentToolCalls: import('../composables/useChat').ToolCall[] = [];
-
-    // 定义工具调用处理器
-    const handleToolCall = async (toolCall: any) => {
-      // 创建工具调用对象
-      const newToolCall = {
-        ...toolCall,
-        timestamp: Date.now(),
-        success: true
-      };
-      
-      // 添加到当前工具调用列表
-      currentToolCalls.push(newToolCall);
-      
-      // 更新消息的工具调用列表
-      if (messages.value[assistantMessageIndex]) {
-        messages.value[assistantMessageIndex].toolCalls = [...currentToolCalls];
-      }
-
-      // 如果有工具调用结果，将结果发送回AI进行后续处理
-      if (toolCall.result !== undefined || toolCall.error !== undefined) {
-        // 递归函数：在每次工具调用完成后再次处理，直到没有新的工具调用
-        const continueProcessing = async () => {
-          try {
-            // 构造工具调用结果信息
-            const toolResultInfo = JSON.stringify(toolCall.result, null, 2);
-            // 检查结果大小
-            const isToolResultTooLarge = toolResultInfo.length > 15000; // 设置一个合理的大小阈值
-            
-            let processingPrompt;
-            if (isToolResultTooLarge) {
-              // 如果工具结果过大，使用简化的提示
-              processingPrompt = `工具 ${toolCall.name} 已完成调用，但返回的数据量过大可能导致token超限。请尝试使用其他工具或方法继续回答用户问题。`;
-              
-              // 在工具调用列表中标记此工具为失败
-              if (messages.value[assistantMessageIndex]) {
-                const toolCalls = messages.value[assistantMessageIndex].toolCalls || [];
-                const updatedToolCalls = toolCalls.map(tc => {
-                  if (tc.name === toolCall.name) {
-                    return {
-                      ...tc,
-                      success: false,
-                      error: "工具返回的数据量过大，导致token超限"
-                    };
-                  }
-                  return tc;
-                });
-                messages.value[assistantMessageIndex].toolCalls = updatedToolCalls;
-              }
-            } else {
-              // 正常提示
-              processingPrompt = `工具 ${toolCall.name} 已完成调用，结果是：${toolResultInfo}。请基于这个结果继续回答用户的问题，如果需要，可以调用其他工具来完成任务。请考虑工具调用结果中的信息并给出最终答案或下一步操作。`;
-            }
-            
-            // 请求AI基于工具结果继续回答
-            const result = await mcpClient.processStreamQuery(
-              processingPrompt,
-              handleStreamChunk,
-              // 同样的工具调用处理
-              async (nextToolCall: any) => {
-                // 如果还有进一步的工具调用，更新当前消息的工具调用列表
-                if (messages.value[assistantMessageIndex]) {
-                  const newToolCall = {
-                    ...nextToolCall,
-                    timestamp: Date.now(),
-                    success: true
-                  };
-                  
-                  // 获取现有工具调用列表
-                  const existingToolCalls = messages.value[assistantMessageIndex].toolCalls || [];
-                  // 添加新的工具调用
-                  messages.value[assistantMessageIndex].toolCalls = [...existingToolCalls, newToolCall];
-                }
-                
-                // 如果有工具调用结果，继续递归处理
-                if (nextToolCall.result !== undefined || nextToolCall.error !== undefined) {
-                  // 添加工具调用结果到历史记录
-                  const nextToolResultMsg = nextToolCall.success 
-                    ? `工具 ${nextToolCall.name} 返回结果: ${JSON.stringify(nextToolCall.result, null, 2)}`
-                    : `工具 ${nextToolCall.name} 调用失败: ${nextToolCall.error}`;
-                  
-                  // 添加到历史
-                  mcpClient.addMessageToHistory({
-                    role: 'assistant',
-                    content: nextToolResultMsg
-                  });
-                  
-                  // 继续递归处理
-                  await continueProcessing();
-                }
-              }
-            );
-            
-            return result;
-          } catch (error) {
-            console.error('处理工具调用结果时出错:', error);
-            
-            // 检查是否是token超限错误
-            const errorMsg = (error as Error).message || "";
-            const isTokenLimitError = errorMsg.includes("token") && 
-                                    (errorMsg.includes("exceed") || 
-                                     errorMsg.includes("limit") || 
-                                     errorMsg.includes("maximum") ||
-                                     errorMsg.includes("too many"));
-            
-            if (isTokenLimitError) {
-              // 在消息中添加token超限提示
-              if (messages.value[assistantMessageIndex]) {
-                messages.value[assistantMessageIndex].content += `\n\n工具 ${toolCall.name} 的结果过大，导致token超限。请尝试使用其他工具或方法继续。`;
-              }
-              
-              // 在工具调用列表中标记此工具为失败
-              if (messages.value[assistantMessageIndex]) {
-                const toolCalls = messages.value[assistantMessageIndex].toolCalls || [];
-                const updatedToolCalls = toolCalls.map(tc => {
-                  if (tc.name === toolCall.name) {
-                    return {
-                      ...tc,
-                      success: false,
-                      error: "结果数据量过大，导致token超限"
-                    };
-                  }
-                  return tc;
-                });
-                messages.value[assistantMessageIndex].toolCalls = updatedToolCalls;
-              }
-              
-              // 重新发送消息给AI，不再通过工具结果而是告知其失败并尝试其他方法
-              try {
-                await mcpClient.processStreamQuery(
-                  `工具 ${toolCall.name} 返回的数据量过大导致token超限。请尝试使用其他工具或方法继续回答用户的问题。`,
-                  handleStreamChunk
-                );
-              } catch (retryError) {
-                console.error('尝试重新处理时出错:', retryError);
-                if (messages.value[assistantMessageIndex]) {
-                  messages.value[assistantMessageIndex].content += `\n\n处理时出现错误: ${(retryError as Error).message}`;
-                }
-              }
-            } else {
-              // 其他错误情况
-              if (messages.value[assistantMessageIndex]) {
-                messages.value[assistantMessageIndex].content += `\n\n处理工具调用结果时出错: ${(error as Error).message}`;
-              }
-            }
-          }
-        };
-        
-        // 启动递归处理
-        await continueProcessing();
-      }
-    };
-    
-    // 使用变量记录是否有错误
-    let hasError = false;
-    
-    try {
-      // 清除之前的聊天历史以确保回答不受之前对话的影响
-      mcpClient.clearHistory();
-      
-      // 将当前用户消息添加到历史
-      mcpClient.addMessageToHistory({
-        role: 'user',
-        content: userQuestion
-      });
-      
-      // 标记消息已完成
-      if (messages.value[assistantMessageIndex]) {
-        messages.value[assistantMessageIndex].isComplete = true;
-        // 添加时间戳
-        messages.value[assistantMessageIndex].timestamp = Date.now();
-      }
-      
-      // 保存当前对话到历史记录
-      saveCurrentChat(messages.value);
-      
-      // 在这里添加成功通知会导致通知过早显示，因为AI回答尚未完成生成
-    } catch (error) {
-      hasError = true;
-      console.error('重新回答时出错:', error);
-      showNotification('重新生成回答失败', 'error');
-    } finally {
-      // 回答生成完成后显示通知
-      if (!hasError) {
-        showNotification('已重新生成回答', 'success');
-      }
-      isLoading.value = false;
-      role: 'user',
-      content: userQuestion
-    });
+    // 使用sendMessage方法重新发送消息
+    await sendMessage();
     
     // 标记消息已完成
     if (messages.value[assistantMessageIndex]) {
       messages.value[assistantMessageIndex].isComplete = true;
-      // 添加时间戳
       messages.value[assistantMessageIndex].timestamp = Date.now();
     }
     
     // 保存当前对话到历史记录
     saveCurrentChat(messages.value);
     
-    // 在这里添加成功通知会导致通知过早显示，因为AI回答尚未完成生成
+    showNotification('已重新生成回答', 'success');
   } catch (error) {
-    hasError = true;
     console.error('重新回答时出错:', error);
     showNotification('重新生成回答失败', 'error');
   } finally {
-    // 回答生成完成后显示通知
-    if (!hasError) {
-      showNotification('已重新生成回答', 'success');
-    }
     isLoading.value = false;
   }
-
 };
 
 // 状态变量
