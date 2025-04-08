@@ -305,6 +305,7 @@ async function initMCPClient(clientName) {
     try {
       logger.debug(`连接到客户端 ${clientName} 中...`);
       await client.connect(transport);
+
       logger.info(`已连接到MCP服务: ${clientName}`);
       // 列出可用工具
       try {
@@ -339,14 +340,9 @@ async function closeClient(clientName) {
   if (client) {
     logger.debug(`开始关闭客户端 ${clientName}...`);
     try {
-      // 检查client是否有disconnect方法
-      if (typeof client.disconnect === 'function') {
-        await client.disconnect();
+      client.onclose = () => {
         logger.info(`MCP客户端 ${clientName} 已断开连接`);
-      } else {
-        logger.warn(`MCP客户端 ${clientName} 没有disconnect方法，直接删除引用`);
       }
-      
       // 清理工具映射
       for (const [toolName, mappedClientName] of Object.entries(toolToClientMap)) {
         if (mappedClientName === clientName) {
@@ -562,86 +558,6 @@ app.get('/mcp/clients/export', (req, res) => {
   res.json(clientConfigs);
 });
 
-// 导入客户端配置
-app.post('/mcp/clients/import', async (req, res) => {
-  try {
-    const { configs, overwrite = false } = req.body;
-    logger.debug(`API请求: 导入客户端配置，覆盖模式=${overwrite}`);
-    
-    if (!configs || typeof configs !== 'object') {
-      logger.warn(`导入失败: 无效的配置数据`);
-      return res.status(400).json({ error: "无效的配置数据" });
-    }
-    
-    const configCount = Object.keys(configs).length;
-    logger.info(`收到 ${configCount} 个客户端配置待导入`);
-    
-    // 断开所有已连接的客户端
-    if (overwrite) {
-      logger.info(`覆盖模式开启，断开所有已连接的客户端`);
-      for (const clientName of Object.keys(mcpClients)) {
-        await closeClient(clientName);
-      }
-    }
-    
-    const results = {
-      imported: [],
-      skipped: [],
-      failed: []
-    };
-    
-    // 导入配置
-    for (const [name, config] of Object.entries(configs)) {
-      try {
-        // 检查必要字段
-        if (!config.command || !config.args) {
-          logger.warn(`跳过导入客户端 ${name}: 配置缺少必要字段`);
-          results.failed.push({ name, reason: "配置缺少必要字段" });
-          continue;
-        }
-        
-        // 检查是否存在且未设置覆盖
-        if (clientConfigs[name] && !overwrite) {
-          logger.info(`跳过导入客户端 ${name}: 已存在且未设置覆盖模式`);
-          results.skipped.push(name);
-          continue;
-        }
-        
-        // 如果已连接，先断开
-        if (mcpClients[name]) {
-          logger.debug(`客户端 ${name} 已连接，需要先断开连接`);
-          await closeClient(name);
-        }
-        
-        // 导入配置
-        clientConfigs[name] = {
-          ...config,
-          lastUpdated: new Date().toISOString()
-        };
-        
-        logger.info(`已导入客户端 ${name} 配置`);
-        results.imported.push(name);
-      } catch (err) {
-        logger.error(`导入客户端 ${name} 失败:`, err);
-        results.failed.push({ name, reason: err.message });
-      }
-    }
-    
-    // 保存配置到文件
-    saveClientConfigs();
-    
-    logger.info(`导入完成：${results.imported.length} 个成功，${results.skipped.length} 个跳过，${results.failed.length} 个失败`);
-    res.json({ 
-      success: true, 
-      message: `导入了 ${results.imported.length} 个客户端配置，跳过 ${results.skipped.length} 个，失败 ${results.failed.length} 个`, 
-      results 
-    });
-  } catch (error) {
-    logger.error(`导入客户端配置失败:`, error);
-    res.status(500).json({ error: "导入客户端配置失败", message: error.message });
-  }
-});
-
 // 连接特定客户端
 app.post('/mcp/clients/:clientName/connect', async (req, res) => {
   try {
@@ -665,7 +581,6 @@ app.post('/mcp/clients/:clientName/connect', async (req, res) => {
         // 继续处理，不终止流程
       }
     }
-    
     // 连接客户端
     const client = await initMCPClient(clientName);
     
@@ -674,7 +589,6 @@ app.post('/mcp/clients/:clientName/connect', async (req, res) => {
       logger.error(`客户端 ${clientName} 初始化失败`);
       throw new Error(`初始化客户端 ${clientName} 失败`);
     }
-    
     logger.info(`客户端 ${clientName} 连接成功`);
     res.json({ 
       success: true, 
@@ -946,6 +860,15 @@ app.get('/mcp/tools', async (req, res) => {
   try {
     const { client: clientName } = req.query;
     logger.debug(`API请求(兼容): 获取客户端 ${clientName} 的工具列表`);
+    if (!clientConfigs[clientName]) {
+      logger.warn(`获取工具列表失败: 未找到客户端配置 ${clientName}`);
+      return res.status(404).json({ error: `未找到客户端: ${clientName}` });
+  }
+    let client = mcpClients[clientName];
+    if (!client) {
+      logger.info(`客户端 ${clientName} 未连接，尝试连接...`);
+      client = await initMCPClient(clientName); 
+    }
     const tools = await client.listTools();
     logger.info(`成功获取客户端 ${clientName} 的工具列表，共 ${tools.length} 个工具`);
     
@@ -1040,53 +963,6 @@ app.get('/mcp/prompts', async (req, res) => {
   }
 });
 
-// 获取工具到客户端的映射关系
-app.get('/mcp/tools/mapping', (req, res) => {
-  try {
-    logger.debug(`API请求: 获取工具到客户端的映射关系`);
-    
-    const toolsCount = Object.keys(toolToClientMap).length;
-    logger.info(`返回 ${toolsCount} 个工具映射信息`);
-    
-    // 构建更详细的映射信息
-    const mappingInfo = Object.entries(toolToClientMap).map(([toolName, clientName]) => {
-      return {
-        tool: toolName,
-        client: clientName,
-        clientConnected: !!mcpClients[clientName]
-      };
-    });
-    
-    res.json({ 
-      totalTools: toolsCount,
-      mapping: mappingInfo
-    });
-  } catch (error) {
-    logger.error(`获取工具映射信息失败:`, error);
-    res.status(500).json({ error: "获取工具映射信息失败", message: error.message });
-  }
-});
-
-// 关闭应用时断开所有连接
-process.on('SIGINT', async () => {
-  logger.info('收到关闭信号，正在断开所有客户端连接...');
-  
-  for (const [clientName, client] of Object.entries(mcpClients)) {
-    try {
-      if (typeof client.disconnect === 'function') {
-        await client.disconnect();
-        logger.info(`MCP客户端 ${clientName} 已断开连接`);
-      } else {
-        logger.warn(`MCP客户端 ${clientName} 没有disconnect方法，跳过断开处理`);
-      }
-    } catch (error) {
-      logger.error(`断开MCP客户端 ${clientName} 连接失败:`, error);
-    }
-  }
-  
-  logger.info('所有客户端已断开连接，服务器即将关闭');
-  process.exit(0);
-});
 
 // 启动服务器
 app.listen(port, () => {
