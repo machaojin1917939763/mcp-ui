@@ -68,12 +68,6 @@
   transition: all 0.3s ease;
 }
 
-/* 用户消息样式 */
-.user .message-content {
-  margin-left: auto;
-  height: auto;
-}
-
 /* AI消息样式 */
 .assistant .message-content {
   background: #ffffff;
@@ -176,11 +170,6 @@
 /* 消息悬停效果 */
 .message-content {
   transition: all 0.3s ease;
-}
-
-.user .message-content:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
 .assistant .message-content:hover {
@@ -352,9 +341,8 @@
 .message-text {
   line-height: 1.6;
   word-break: break-word;
-  font-size: 15px;
-  margin-top: 8px;
-  padding: 5px 0;
+  font-size: 18px;
+  margin-top: 5px;
   min-height: 24px;
 }
 
@@ -381,6 +369,10 @@
   background: linear-gradient(135deg, #e3f2fd, #bbdefb); /* 浅蓝到更柔和的蓝 */
   color: #1a237e; /* 深蓝色文字，保证可读性 */
   border: 1px solid rgba(255, 255, 255, 0.5); /* 轻微白色边框增强层次 */
+  margin-left: auto;
+  min-height: 20px;
+  height: fit-content; /* 根据内容自适应高度 */
+  padding: 8px 12px; /* 减小内边距使文字和边框更紧凑 */
 }
 
 /* 通用样式优化 */
@@ -395,6 +387,8 @@
 /* 悬停效果（可选） */
 .user .message-content:hover {
   background: linear-gradient(135deg, #d8ebff, #b3d9ff);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
 /* 修改AI消息样式 */
