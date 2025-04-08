@@ -1,23 +1,27 @@
-/* Markdown 格式化样式 */
+/* Markdown 格式化样式 - 增强可读性 */
 .message-text {
-  line-height: 1.8;
+  line-height: 1.85;
   color: #2c3e50;
-  font-size: 1.02rem;
+  font-size: 1rem;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  letter-spacing: 0.015em;
+  word-spacing: 0.01em;
+  text-rendering: optimizeLegibility;
 }
 
-/* 标题样式 */
+/* 标题样式 - 更清晰的层次感 */
 .message-text h1,
 .message-text h2,
 .message-text h3,
 .message-text h4,
 .message-text h5,
 .message-text h6 {
-  margin: 1.8em 0 0.8em;
-  font-weight: 700;
+  margin: 1.2em 0 0.6em;
+  font-weight: 600;
   line-height: 1.3;
   color: #1a1a1a;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.01em;
+  position: relative;
 }
 
 .message-text h1 {
@@ -58,6 +62,9 @@
   margin: 1.2em 0;
   line-height: 1.8;
   color: #2d3748;
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+  word-break: normal;
 }
 
 .message-text strong {
@@ -84,11 +91,14 @@
 .message-text code {
   font-family: 'Fira Code', 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
   font-size: 0.9em;
-  background-color: #f8f9fa;
-  padding: 0.2em 0.4em;
+  background-color: #f1f5f9;
+  padding: 0.15em 0.3em;
   border-radius: 4px;
-  color: #e53e3e;
-  border: 1px solid #e2e8f0;
+  color: #e11d48;
+  border: none;
+  font-feature-settings: "liga" 1, "calt" 1; /* 启用连字 */
+  white-space: pre-wrap;
+  word-break: keep-all;
 }
 
 /* 列表样式 */
@@ -120,15 +130,27 @@
   margin: 0.6em 0;
 }
 
-/* 引用块样式 */
+/* 引用块样式 - 增强区分度 */
 .message-text blockquote {
   margin: 1.5em 0;
-  padding: 1em 1.5em;
-  border-left: 4px solid #4299e1;
-  color: #4a5568;
-  background-color: #f8fafc;
-  border-radius: 0 6px 6px 0;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  padding: 0.8em 1.2em 0.8em 1.2em;
+  border-left: 4px solid #3b82f6;
+  color: #475569;
+  background-color: #f9fafb;
+  border-radius: 0 8px 8px 0;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.03);
+  position: relative;
+}
+
+.message-text blockquote::before {
+  content: '\201C';
+  position: absolute;
+  left: 6px;
+  top: -8px;
+  font-size: 2.5em;
+  color: #3b82f680;
+  line-height: 1;
+  font-family: Georgia, serif;
 }
 
 .message-text blockquote p {
@@ -144,29 +166,49 @@
   margin: 2.5em 0;
 }
 
-/* 表格样式 */
+/* 表格样式 - 现代化设计 */
 .message-text table {
   width: 100%;
   border-collapse: separate;
   border-spacing: 0;
-  margin: 1.5em 0;
+  margin: 1.8em 0;
   overflow-x: auto;
   display: block;
-  border-radius: 8px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  border-radius: 10px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
 .message-text table th,
 .message-text table td {
-  padding: 0.75em 1em;
-  border: 1px solid #e2e8f0;
+  padding: 0.7em 1em;
+  border: none;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.message-text table thead {
+  position: sticky;
+  top: 0;
+  z-index: 1;
 }
 
 .message-text table th {
-  background-color: #f8fafc;
+  background-color: #f1f5f9;
   font-weight: 600;
-  color: #2d3748;
-  border-bottom: 2px solid #e2e8f0;
+  color: #1e293b;
+  text-align: left;
+  border-bottom: 2px solid #cbd5e1;
+  position: relative;
+}
+
+.message-text table th:after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  width: 100%;
+  height: 2px;
+  background: linear-gradient(90deg, #3b82f6, transparent);
+  opacity: 0.7;
 }
 
 .message-text table tr:nth-child(even) {
@@ -174,21 +216,41 @@
 }
 
 .message-text table tr:hover {
-  background-color: #f0f9ff;
+  background-color: #e0f2fe;
+  transition: background-color 0.15s ease;
 }
 
-/* 链接样式 */
+/* 链接样式 - 现代化设计 */
 .message-text a {
-  color: #4299e1;
+  color: #3b82f6;
   text-decoration: none;
-  border-bottom: 2px solid rgba(66, 153, 225, 0.2);
+  border-bottom: 1px solid rgba(59, 130, 246, 0.2);
   transition: all 0.2s ease;
-  padding-bottom: 2px;
+  padding-bottom: 1px;
+  position: relative;
 }
 
 .message-text a:hover {
-  color: #2b6cb0;
-  border-bottom-color: #4299e1;
+  color: #1d4ed8;
+  border-bottom-color: rgba(29, 78, 216, 0.6);
+}
+
+.message-text a:after {
+  content: '';
+  position: absolute;
+  width: 100%;
+  height: 1px;
+  bottom: -1px;
+  left: 0;
+  background-color: currentColor;
+  transform: scaleX(0);
+  transform-origin: bottom right;
+  transition: transform 0.3s ease-out;
+}
+
+.message-text a:hover:after {
+  transform: scaleX(1);
+  transform-origin: bottom left;
 }
 
 /* 图片样式 */
@@ -220,22 +282,23 @@
 .message-text .inline-code {
   font-family: 'Fira Code', 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
   font-size: 0.9em;
-  background-color: #f8f9fa;
-  padding: 0.2em 0.4em;
+  background-color: #f1f5f9;
+  padding: 0.15em 0.3em;
   border-radius: 4px;
-  color: #e53e3e;
-  border: 1px solid #e2e8f0;
+  color: #e11d48;
+  border: none;
+  white-space: nowrap;
 }
 
-/* 代码块样式 */
+/* 代码块样式 - 清新简洁设计 */
 .message-text pre {
-  background-color: #f8f9fa;
+  background-color: #f8fafc;
   border-radius: 8px;
-  padding: 1.2em;
+  padding: 1em 1.2em;
   overflow-x: auto;
   margin: 1.5em 0;
   position: relative;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
   border: 1px solid #e2e8f0;
 }
 
@@ -243,85 +306,102 @@
   font-family: 'Fira Code', 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
   font-size: 0.9em;
   line-height: 1.6;
-  color: #000000;
+  color: #334155;
   background-color: transparent;
   padding: 0;
   border-radius: 0;
   border: none;
+  display: block;
+  white-space: pre;
+  word-break: normal;
+  word-wrap: normal;
+  tab-size: 2;
 }
 
-/* 代码高亮 */
+/* 代码高亮 - 高对比度配色方案 */
 .message-text pre .hljs-keyword,
 .message-text pre .hljs-selector-tag,
 .message-text pre .hljs-selector-class {
-  color: #d73a49;
+  color: #8839ef;
 }
 
 .message-text pre .hljs-string,
 .message-text pre .hljs-attr {
-  color: #032f62;
+  color: #40a02b;
 }
 
 .message-text pre .hljs-title,
 .message-text pre .hljs-class .hljs-title,
 .message-text pre .hljs-title.class_ {
-  color: #6f42c1;
+  color: #1e66f5;
 }
 
 .message-text pre .hljs-comment,
 .message-text pre .hljs-quote {
-  color: #6a737d;
+  color: #9ca3af;
   font-style: italic;
 }
 
 .message-text pre .hljs-number,
 .message-text pre .hljs-symbol,
 .message-text pre .hljs-bullet {
-  color: #005cc5;
+  color: #fe640b;
 }
 
 .message-text pre .hljs-function,
 .message-text pre .hljs-built_in {
-  color: #6f42c1;
+  color: #1e66f5;
 }
 
 .message-text pre .hljs-tag {
-  color: #22863a;
+  color: #d20f39;
 }
 
 .message-text pre .hljs-name {
-  color: #005cc5;
+  color: #1e66f5;
 }
 
 .message-text pre .hljs-variable,
 .message-text pre .hljs-literal {
-  color: #e36209;
+  color: #fe640b;
 }
 
 .message-text pre .hljs-regexp {
-  color: #032f62;
+  color: #40a02b;
 }
 
-/* 数学公式样式 */
+/* 数学公式样式 - 增强公式显示 */
 .message-text .math-inline {
   display: inline-block;
   vertical-align: middle;
-  padding: 0.2em 0.4em;
+  padding: 0.15em 0.3em;
   margin: 0 0.1em;
-  background-color: #f8fafc;
+  background-color: #f0f9ff;
   border-radius: 4px;
-  border: 1px solid #e2e8f0;
+  border: none;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 }
 
 .message-text .math-block {
   display: block;
-  margin: 1.5em 0;
-  padding: 1.2em;
-  background-color: #f8fafc;
-  border-radius: 8px;
+  margin: 1.8em 0;
+  padding: 1.5em;
+  background-color: #f0f9ff;
+  border-radius: 10px;
   overflow-x: auto;
   text-align: center;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  position: relative;
+}
+
+.message-text .math-block::before {
+  content: 'Σ';
+  position: absolute;
+  right: 10px;
+  top: 5px;
+  font-size: 1rem;
+  opacity: 0.5;
+  color: #3b82f6;
 }
 
 /* 移动端适配 */

@@ -185,8 +185,8 @@
   display: flex;
   flex-direction: column;
   position: relative;
-  /* 添加足够的顶部内边距，为ChatHeader预留空间 */
-  padding-top: 4rem;
+  /* 调整顶部内边距以匹配更小的头部组件 */
+  padding-top: 3.5rem;
 }
 
 .chat-content-wrapper {

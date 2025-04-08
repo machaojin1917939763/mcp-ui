@@ -3,6 +3,8 @@ import './styles/app.css'
 // 导入KaTeX样式表
 import 'katex/dist/katex.min.css'
 import App from './App.vue'
+// 导入工具调用指令
+import { vToolCall } from './directives/toolCall'
 
 // 添加全局代码复制功能
 declare global {
@@ -36,4 +38,9 @@ window.copyCode = function(button: HTMLElement) {
   });
 };
 
-createApp(App).mount('#app')
+const app = createApp(App)
+
+// 注册自定义指令
+app.directive('tool-call', vToolCall)
+
+app.mount('#app')

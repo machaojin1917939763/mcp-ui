@@ -163,7 +163,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, defineProps, defineEmits, ref, watch } from 'vue';
+import { computed, defineProps, defineEmits, ref, watch, h, render } from 'vue';
 import type { ChatMessage } from '../composables';
 import type { ToolCall } from '../composables/useChat';
 import ToolCallView from './ToolCallView.vue';
@@ -201,6 +201,9 @@ const copiedMessageIds = ref<Record<string, boolean>>({});
 // 预览图数组
 const previewImages = ref<PreviewImage[]>([]);
 
+// 工具调用数据存储，用于v-tool-call指令
+const toolCallsData = ref<Record<string, any>>({});
+
 const openSettings = () => {
   emit('open-settings');
 };
@@ -221,7 +224,32 @@ const processMessageContent = (content: string) => {
   // 替换工具调用标记
   let processedContent = content.replace(/<tool-call.*?\/>/g, '');
   
-  // 移除JSON格式的工具调用内容
+    // 提取工具调用数据，并存储到工具调用数据映射中
+  // 这样我们可以在模板中使用 v-tool-call 指令将工具调用JSON替换为组件
+  const toolCallMatches = processedContent.match(/\{"type":"tool_calls","tool_calls":\[(.*?)\]\}/gs);
+  
+  if (toolCallMatches) {
+    toolCallMatches.forEach(match => {
+      try {
+        // 尝试解析完整的工具调用对象
+        const toolCallObj = JSON.parse(match);
+        if (toolCallObj && toolCallObj.type === 'tool_calls' && Array.isArray(toolCallObj.tool_calls)) {
+          // 为当前消息的工具调用生成一个唯一标识符
+          const toolCallId = `tool-call-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+          
+          // 存储工具调用数据
+          toolCallsData.value[toolCallId] = toolCallObj.tool_calls;
+          
+          // 在消息内容中替换为自定义标记，用于后续处理
+          processedContent = processedContent.replace(match, `<div id="${toolCallId}" class="tool-call-placeholder"></div>`);
+        }
+      } catch (e) {
+        console.error('解析工具调用JSON失败:', e);
+      }
+    });
+  }
+  
+  // 移除已被替换的工具调用JSON
   processedContent = processedContent.replace(/\{"type":"tool_calls","tool_calls":\[.*?\]\}/gs, '');
   
   // 移除工具调用结果文本
@@ -341,7 +369,186 @@ const extractImagesFromMessage = (content: string) => {
   });
 };
 
-// 监听消息变化，自动提取图片
+// 处理渲染后的消息，应用工具调用组件
+const processRenderedMessages = () => {
+  // 查找所有工具调用占位符
+  setTimeout(() => {
+    const placeholders = document.querySelectorAll('.tool-call-placeholder');
+    placeholders.forEach(placeholder => {
+      const id = placeholder.id;
+      if (id && toolCallsData.value[id]) {
+        // 获取工具调用数据
+        const toolCalls = toolCallsData.value[id];
+        
+        // 检查是否所有工具调用都已完成
+        const allCompleted = toolCalls.every((toolCall: any) => 
+          toolCall.result !== undefined || toolCall.error !== undefined
+        );
+        
+        // 如果所有调用都已完成，或者这是首次渲染，则更新组件
+        if (allCompleted || !placeholder.hasAttribute('processed')) {
+          // 标记为已处理，避免重复渲染未完成的调用
+          placeholder.setAttribute('processed', 'true');
+          
+          // 如果所有调用都已完成，标记为完成状态
+          if (allCompleted) {
+            placeholder.setAttribute('completed', 'true');
+          }
+          
+          // 清空占位符内容
+          placeholder.innerHTML = '';
+          
+          // 为每个工具调用创建组件
+          toolCalls.forEach((toolCall: any) => {
+            // 创建工具调用视图组件实例
+            const toolCallInstance = document.createElement('div');
+            toolCallInstance.className = 'tool-calls-inline';
+            
+            // 创建工具调用组件
+            const toolCallComponent = h(ToolCallView, {
+              toolName: toolCall.name || '未知工具',
+              params: toolCall.args || {},
+              result: toolCall.result,
+              error: toolCall.error,
+              success: !toolCall.error
+            });
+            
+            // 渲染组件到DOM
+            render(toolCallComponent, toolCallInstance);
+            placeholder.appendChild(toolCallInstance);
+          });
+        }
+      }
+    });
+  }, 0);
+};
+
+// 定期检查工具调用状态，确保已完成的调用显示正确状态
+const startToolCallStatusChecker = () => {
+  const checkInterval = 1000; // 每秒检查一次
+  let intervalId: number;
+  
+  const checkToolCallStatus = () => {
+    const processingPlaceholders = document.querySelectorAll('.tool-call-placeholder:not([completed="true"])');
+    
+    // 如果没有处理中的占位符，可以停止检查
+    if (processingPlaceholders.length === 0) {
+      clearInterval(intervalId);
+      return;
+    }
+    
+    // 检查每个处理中的占位符
+    processingPlaceholders.forEach(placeholder => {
+      const id = placeholder.id;
+      if (id && toolCallsData.value[id]) {
+        const toolCalls = toolCallsData.value[id];
+        
+        // 检查是否所有工具调用都已完成
+        const allCompleted = toolCalls.every((toolCall: any) => 
+          toolCall.result !== undefined || toolCall.error !== undefined
+        );
+        
+        // 如果所有调用都已完成，更新组件
+        if (allCompleted) {
+          // 标记为已完成
+          placeholder.setAttribute('completed', 'true');
+          
+          // 在不改变DOM结构的情况下更新组件状态
+          // 获取已渲染的工具调用组件
+          const existingToolCallComponents = placeholder.querySelectorAll('.tool-calls-inline');
+          
+          // 如果有已渲染的组件，直接更新它们的属性
+          if (existingToolCallComponents.length > 0) {
+            toolCalls.forEach((toolCall: any, index: number) => {
+              // 确保组件存在
+              if (index < existingToolCallComponents.length) {
+                const component = existingToolCallComponents[index];
+                
+                // 更新组件内部状态，不改变DOM结构
+                // 得到组件内部的内容元素
+                const headerElement = component.querySelector('.tool-call-header');
+                const statusElement = component.querySelector('.tool-status');
+                const infoElement = component.querySelector('.tool-call-info');
+                
+                if (headerElement && statusElement && infoElement) {
+                  // 更新状态文本
+                  statusElement.textContent = toolCall.error ? '调用失败' : '调用成功';
+                  
+                  // 更新类以反映状态
+                  if (toolCall.error) {
+                    headerElement.classList.remove('success', 'pending');
+                    headerElement.classList.add('error');
+                    statusElement.classList.remove('success', 'pending');
+                    statusElement.classList.add('error');
+                  } else {
+                    headerElement.classList.remove('error', 'pending');
+                    headerElement.classList.add('success');
+                    statusElement.classList.remove('error', 'pending');
+                    statusElement.classList.add('success');
+                  }
+                }
+                
+                // 更新结果部分
+                const detailsElement = component.querySelector('.tool-call-details');
+                if (detailsElement) {
+                  const resultSection = detailsElement.querySelector('.tool-call-section:nth-child(2)');
+                  if (resultSection) {
+                    const titleElement = resultSection.querySelector('.section-title');
+                    if (titleElement) {
+                      titleElement.textContent = '调用结果';
+                    }
+                    
+                    const codeBlock = resultSection.querySelector('.code-block');
+                    if (codeBlock) {
+                      try {
+                        codeBlock.textContent = JSON.stringify(toolCall.result || toolCall.error, null, 2);
+                        
+                        if (toolCall.error) {
+                          codeBlock.classList.add('error-result');
+                        } else {
+                          codeBlock.classList.remove('error-result');
+                        }
+                      } catch (e) {
+                        codeBlock.textContent = String(toolCall.result || toolCall.error);
+                      }
+                    }
+                  }
+                }
+              }
+            });
+          } else {
+            // 如果还没有渲染组件，那么创建它们
+            toolCalls.forEach((toolCall: any) => {
+              const toolCallInstance = document.createElement('div');
+              toolCallInstance.className = 'tool-calls-inline';
+              
+              const toolCallComponent = h(ToolCallView, {
+                toolName: toolCall.name || '未知工具',
+                params: toolCall.args || {},
+                result: toolCall.result,
+                error: toolCall.error,
+                success: !toolCall.error
+              });
+              
+              render(toolCallComponent, toolCallInstance);
+              placeholder.appendChild(toolCallInstance);
+            });
+          }
+        }
+      }
+    });
+  };
+  
+  // 启动定期检查
+  intervalId = window.setInterval(checkToolCallStatus, checkInterval);
+  
+  // 页面卸载时清除定时器
+  window.addEventListener('beforeunload', () => {
+    clearInterval(intervalId);
+  });
+};
+
+// 监听消息变化，自动提取图片和处理工具调用
 watch(() => props.messages, (newMessages) => {
   // 清空预览图
   previewImages.value = [];
@@ -358,6 +565,12 @@ watch(() => props.messages, (newMessages) => {
       }
     }
   });
+  
+  // 处理渲染后的消息，应用工具调用组件
+  processRenderedMessages();
+  
+  // 启动工具调用状态检查器
+  startToolCallStatusChecker();
 }, { deep: true });
 
 // 计算属性：处理消息分组，确保用户消息在上，AI回复在下

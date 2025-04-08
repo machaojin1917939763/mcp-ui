@@ -150,7 +150,7 @@ const toggleHistoryPanelManual = () => {
   }
 };
 
-// 定义代理发送消息函数，添加滚动到底部的功能
+// 定义代理发送消息函数，符合MCP客户端标准
 const sendMessage = () => {
   // 使用正常的消息发送函数
   chatSendMessage(
@@ -159,15 +159,55 @@ const sendMessage = () => {
     chatHistoryList.value, 
     saveCurrentChat, 
     async (toolCall: {name: string, params: any, result?: any, error?: string, success: boolean}) => {
-      // 处理工具调用结果
+      // 只处理已完成的工具调用（有结果或错误）
       if (toolCall && (toolCall.result !== undefined || toolCall.error !== undefined)) {
-        // 查找最新添加的消息索引
         const assistantMessageIndex = messages.value.length - 1;
+        const currentAssistantMessage = messages.value[assistantMessageIndex];
         
-        // 构建工具调用结果消息
+        // 构建工具调用结果记录
+        let toolResultInfo = '';
+        let toolStatusHtml = '';
+        
+        if (toolCall.success) {
+          // 成功的工具调用
+          toolResultInfo = JSON.stringify(toolCall.result, null, 2);
+          
+          // 检查结果大小
+          const isToolResultTooLarge = toolResultInfo.length > 15000;
+          if (isToolResultTooLarge) {
+            // 处理过大的返回结果
+            toolCall.success = false;
+            toolCall.error = '工具返回的数据量过大，可能导致token超限';
+            toolResultInfo = toolCall.error;
+            
+            // 更新界面中的工具调用状态
+            if (currentAssistantMessage) {
+              const toolCalls = currentAssistantMessage.toolCalls || [];
+              currentAssistantMessage.toolCalls = toolCalls.map(tc => 
+                tc.name === toolCall.name ? {
+                  ...tc,
+                  success: false,
+                  error: toolCall.error
+                } : tc
+              );
+            }
+            
+            // 创建工具状态HTML (错误状态)
+            toolStatusHtml = `<tool-call name="${toolCall.name}" status="error" error="${encodeURIComponent(toolCall.error)}"/>`;
+          } else {
+            // 创建工具状态HTML (成功状态)
+            toolStatusHtml = `<tool-call name="${toolCall.name}" status="success" result="${encodeURIComponent(toolResultInfo)}"/>`;
+          }
+        } else {
+          // 失败的工具调用
+          toolResultInfo = toolCall.error || '未知错误';
+          toolStatusHtml = `<tool-call name="${toolCall.name}" status="error" error="${encodeURIComponent(toolResultInfo)}"/>`;
+        }
+        
+        // 构建用于展示的工具调用结果消息
         const toolResultMsg = toolCall.success 
-          ? `工具 ${toolCall.name} 返回结果: ${JSON.stringify(toolCall.result, null, 2)}`
-          : `工具 ${toolCall.name} 调用失败: ${toolCall.error}`;
+          ? `工具 ${toolCall.name} 返回结果: ${toolResultInfo}`
+          : `工具 ${toolCall.name} 调用失败: ${toolResultInfo}`;
         
         try {
           // 添加工具调用结果到历史记录
@@ -175,77 +215,88 @@ const sendMessage = () => {
             role: 'assistant',
             content: toolResultMsg
           });
-
-          // 处理流式响应的回调函数
+          
+          // 流式响应处理函数
           const handleStreamChunk = (chunk: string) => {
-            if (messages.value[assistantMessageIndex]) {
-              messages.value[assistantMessageIndex].content += chunk;
+            // 确保历史消息存在
+            if (currentAssistantMessage) {
+              currentAssistantMessage.content += chunk;
             }
           };
-
-          // 检查结果大小并构建处理提示
-          const toolResultInfo = JSON.stringify(toolCall.result, null, 2);
-          const isToolResultTooLarge = toolResultInfo.length > 15000;
           
-          const processingPrompt = isToolResultTooLarge
-            ? `工具 ${toolCall.name} 已完成调用，但返回的数据量过大可能导致token超限。请尝试使用其他工具`
-            : `工具 ${toolCall.name} 已完成调用，结果是：${toolResultInfo}。请基于这个结果继续回答用户的问题，如果需要，可以调用其他工具来完成任务。`;
+          // 构建提示语
+          const processingPrompt = toolCall.success
+            ? `工具 ${toolCall.name} 已完成调用，结果是：${toolResultInfo}。请基于这个结果继续回答用户的问题，如果需要，可以调用其他工具来完成任务。`
+            : `工具 ${toolCall.name} 调用失败：${toolResultInfo}。请考虑其他方法解决问题，或者给出下一步建议。`;
           
-          // 如果结果过大，标记工具调用为失败
-          if (isToolResultTooLarge && messages.value[assistantMessageIndex]) {
-            const toolCalls = messages.value[assistantMessageIndex].toolCalls || [];
-            messages.value[assistantMessageIndex].toolCalls = toolCalls.map(tc => 
-              tc.name === toolCall.name ? {
-                ...tc,
-                success: false,
-                error: "工具返回的数据量过大，导致token超限"
-              } : tc
-            );
-          }
+          // 创建工具调用结果处理函数，符合MCP客户端规范
+          const handleToolCall = async (nextToolCall: {name: string, params: any, result?: any, error?: string, success: boolean}) => {
+            // 记录工具调用到当前消息
+            if (currentAssistantMessage) {
+              const newToolCall = {
+                ...nextToolCall,
+                timestamp: Date.now(),
+                success: true, // 初始状态为成功，结果处理后可能会更新
+                params: nextToolCall.params // 确保参数被保存
+              };
+              
+              // 添加到工具调用列表
+              currentAssistantMessage.toolCalls = [
+                ...(currentAssistantMessage.toolCalls || []),
+                newToolCall
+              ];
+            }
+            
+            // 当有工具调用结果时，递归处理
+            if (nextToolCall.result !== undefined || nextToolCall.error !== undefined) {
+              // 记录工具调用结果到历史
+              const nextToolResultMsg = nextToolCall.success 
+                ? `工具 ${nextToolCall.name} 返回结果: ${JSON.stringify(nextToolCall.result, null, 2)}`
+                : `工具 ${nextToolCall.name} 调用失败: ${nextToolCall.error}`;
+              
+              mcpClient.addMessageToHistory({
+                role: 'assistant',
+                content: nextToolResultMsg
+              });
+              
+              // 递归处理下一个工具调用
+              await sendMessage();
+            }
+          };
           
-          // 处理AI响应
+          // 调用MCP客户端处理流式查询
           try {
             await mcpClient.processStreamQuery(
               processingPrompt,
               handleStreamChunk,
-              async (nextToolCall: {name: string, params: any, result?: any, error?: string, success: boolean}) => {
-                // 更新工具调用列表
-                if (messages.value[assistantMessageIndex]) {
-                  const newToolCall = {
-                    ...nextToolCall,
-                    timestamp: Date.now(),
-                    success: true
-                  };
-                  messages.value[assistantMessageIndex].toolCalls = [
-                    ...(messages.value[assistantMessageIndex].toolCalls || []),
-                    newToolCall
-                  ];
-                }
-                
-                // 如果有工具调用结果，递归处理
-                if (nextToolCall.result !== undefined || nextToolCall.error !== undefined) {
-                  const nextToolResultMsg = nextToolCall.success 
-                    ? `工具 ${nextToolCall.name} 返回结果: ${JSON.stringify(nextToolCall.result, null, 2)}`
-                    : `工具 ${nextToolCall.name} 调用失败: ${nextToolCall.error}`;
-                  
-                  mcpClient.addMessageToHistory({
-                    role: 'assistant',
-                    content: nextToolResultMsg
-                  });
-                  
-                  // 递归调用sendMessage处理下一个工具调用
-                  await sendMessage();
-                }
-              }
+              handleToolCall
             );
           } catch (error) {
+            // 处理错误，添加错误信息到响应
             console.error('处理AI响应时出错:', error);
-            if (messages.value[assistantMessageIndex]) {
-              messages.value[assistantMessageIndex].content += `\n\n处理时出现错误: ${(error as Error).message}`;
+            const errorMessage = (error as Error).message || '未知错误';
+            
+            if (currentAssistantMessage) {
+              currentAssistantMessage.content += `
+
+处理时出现错误: ${errorMessage}`;
+              
+              // 显示错误通知
+              showNotification(`处理AI响应失败: ${errorMessage}`, 'error');
             }
           }
         } catch (error) {
+          // 处理工具调用整体错误
           console.error('处理工具调用结果时出错:', error);
+          const errorMessage = (error as Error).message || '未知错误';
+          
+          showNotification(`处理工具调用失败: ${errorMessage}`, 'error');
+          
+          if (currentAssistantMessage) {
+            currentAssistantMessage.content += `
+
+工具调用处理失败: ${errorMessage}`;
+          }
         }
       }
     }
@@ -731,11 +782,40 @@ const handleRegenerateAnswer = async (groupIndex: number) => {
       }
     };
     
-    // 清除之前的聊天历史以确保回答不受之前对话的影响
-    mcpClient.clearHistory();
+    // 使用变量记录是否有错误
+    let hasError = false;
     
-    // 将当前用户消息添加到历史
-    mcpClient.addMessageToHistory({
+    try {
+      // 清除之前的聊天历史以确保回答不受之前对话的影响
+      mcpClient.clearHistory();
+      
+      // 将当前用户消息添加到历史
+      mcpClient.addMessageToHistory({
+        role: 'user',
+        content: userQuestion
+      });
+      
+      // 标记消息已完成
+      if (messages.value[assistantMessageIndex]) {
+        messages.value[assistantMessageIndex].isComplete = true;
+        // 添加时间戳
+        messages.value[assistantMessageIndex].timestamp = Date.now();
+      }
+      
+      // 保存当前对话到历史记录
+      saveCurrentChat(messages.value);
+      
+      // 在这里添加成功通知会导致通知过早显示，因为AI回答尚未完成生成
+    } catch (error) {
+      hasError = true;
+      console.error('重新回答时出错:', error);
+      showNotification('重新生成回答失败', 'error');
+    } finally {
+      // 回答生成完成后显示通知
+      if (!hasError) {
+        showNotification('已重新生成回答', 'success');
+      }
+      isLoading.value = false;
       role: 'user',
       content: userQuestion
     });
@@ -749,14 +829,20 @@ const handleRegenerateAnswer = async (groupIndex: number) => {
     
     // 保存当前对话到历史记录
     saveCurrentChat(messages.value);
-    // 显示成功通知
-    showNotification('已重新生成回答', 'success');
+    
+    // 在这里添加成功通知会导致通知过早显示，因为AI回答尚未完成生成
   } catch (error) {
+    hasError = true;
     console.error('重新回答时出错:', error);
     showNotification('重新生成回答失败', 'error');
   } finally {
+    // 回答生成完成后显示通知
+    if (!hasError) {
+      showNotification('已重新生成回答', 'success');
+    }
     isLoading.value = false;
   }
+
 };
 
 // 状态变量
