@@ -28,7 +28,15 @@
         "**/express/**/*",
         "**/body-parser/**/*",
         "**/cors/**/*",
-        "**/dotenv/**/*"
+        "**/dotenv/**/*",
+        "**/fs-extra/**/*",
+        "**/axios/**/*",
+        "**/child_process/**/*",
+        "**/path/**/*",
+        "**/http/**/*",
+        "**/dotenv-expand/**/*",
+        "**/@anthropic-ai/**/*",
+        "**/openai/**/*"
       ]
     }
   ],

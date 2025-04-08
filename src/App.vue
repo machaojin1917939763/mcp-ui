@@ -44,19 +44,6 @@ const {
 // 显示设置
 const showSettings = ref(false);
 
-// 自定义selectModel和selectCustomModel以使用我们的mcpClient和showNotification
-const selectModel = (id: string, newProviderId?: string) => {
-  originalSelectModel(id, mcpClient, showNotification, newProviderId);
-};
-
-const selectCustomModel = (id: string) => {
-  originalSelectCustomModel(id, mcpClient, showNotification);
-};
-
-// 创建新对话
-function createNewChat() {
-  console.log("创建新对话");
-}
 </script>
 
 <template>

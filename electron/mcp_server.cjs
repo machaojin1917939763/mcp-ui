@@ -39,6 +39,7 @@ function logWithTimestamp(level, message, ...args) {
   }
   // 如果是在Electron子进程中运行，发送消息给主进程
   if (process.send) {
+    const timestamp = new Date().toISOString();
     process.send({ level, message, timestamp });
   }
 }
