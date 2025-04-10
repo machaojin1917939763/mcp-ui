@@ -1,7 +1,7 @@
 {
   "appId": "com.mcp.chat",
   "productName": "MCP Chat",
-  "copyright": "Copyright © 2024 Ma Chaojin",
+  "copyright": "Copyright 2024 Ma Chaojin",
   "extraMetadata": {
     "version": "1.0.1",
     "author": {
@@ -66,7 +66,9 @@
       }
     ],
     "icon": "public/icons/win.ico",
-    "artifactName": "${productName}-Setup-${version}.${ext}"
+    "artifactName": "${productName}-Setup-${version}.${ext}",
+    "executableName": "MCP Chat",
+    "requestedExecutionLevel": "asInvoker"
   },
   "linux": {
     "target": [
@@ -96,4 +98,4 @@
     "provider": "generic",
     "url": ""
   }
-} 
+}

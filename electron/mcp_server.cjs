@@ -307,7 +307,22 @@ async function initMCPClient(clientName) {
   const transport = new StdioClientTransport({
     command: config.command,
     args: config.args,
-    env: config.env,
+    env: {
+      ...config.env,
+      // 添加环境变量以尝试隐藏Windows控制台窗口
+      ...(process.platform === 'win32' ? {
+        // 告诉子进程它在Electron中运行
+        RUNNING_IN_ELECTRON: '1',
+        // 告诉子进程不要显示窗口
+        NO_WINDOW: '1',
+        // 确保子进程知道它应该作为Node.js运行
+        ELECTRON_RUN_AS_NODE: '1',
+        // 设置静默模式（对某些命令有效）
+        PYTHONUNBUFFERED: '1',
+        // 对于Python程序，可能会检查这些环境变量
+        PYTHONDONTWRITEBYTECODE: '1'
+      } : {})
+    }
   });
 
   // 创建客户端

@@ -13,7 +13,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "server": "node server.js",
+    "server": "node electron/mcp_server.cjs",
     "mcp:server": "cross-env NODE_ENV=development node electron/mcp_server.cjs",
     "electron:dev": "concurrently \"npm run dev\" \"npm run electron:start\"",
     "electron:start": "cross-env NODE_ENV=development electron .",

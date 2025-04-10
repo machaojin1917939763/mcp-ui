@@ -6,6 +6,123 @@ const isDev = process.env.NODE_ENV === 'development';
 const fs = require('fs-extra');
 const http = require('http');
 
+// 临时禁用child_process钩子，以查看是否是它导致连接问题
+// 要重新启用，只需删除条件中的false &&
+if (false && process.platform === 'win32') {
+  try {
+    // 获取原始的child_process模块
+    const childProcess = require('child_process');
+    
+    // 保存原始方法的引用
+    const originalSpawn = childProcess.spawn;
+    const originalExecFile = childProcess.execFile;
+    const originalFork = childProcess.fork;
+    
+    // 覆盖spawn方法，为所有子进程添加windowsHide选项
+    childProcess.spawn = function(command, args, options = {}) {
+      // 确保options是对象
+      options = options || {};
+      
+      // 不修改特定命令的选项，以避免干扰它们的正常运行
+      const isSpecialCommand = command.includes('node') || 
+                              command.includes('npm') || 
+                              command === process.execPath;
+      
+      console.log(`[child_process hook] Spawning command: ${command} with args: ${args ? args.join(' ') : 'none'}`);
+      
+      if (!isSpecialCommand) {
+        // 添加Windows特定选项
+        options.windowsHide = true;
+        // 不要修改detached选项，可能会影响进程的生命周期管理
+        
+        // 如果没有明确指定，则设置shell为false
+        if (options.shell === undefined) {
+          options.shell = false;
+        }
+        
+        // 小心使用这些选项，它们可能会干扰某些进程
+        if (options.windowsVerbatimArguments === undefined) {
+          options.windowsVerbatimArguments = true;
+        }
+        
+        // 添加CREATE_NO_WINDOW标志 (0x08000000)，但保留现有的flags
+        if (!options.creation_flags) {
+          options.creation_flags = 0x08000000;
+        } else {
+          options.creation_flags |= 0x08000000;
+        }
+        
+        console.log(`[child_process hook] Added windowsHide options for command: ${command}`);
+      } else {
+        console.log(`[child_process hook] Not modifying options for special command: ${command}`);
+      }
+      
+      return originalSpawn(command, args, options);
+    };
+    
+    // 覆盖execFile方法
+    childProcess.execFile = function(file, args, options, callback) {
+      // 处理可选参数
+      if (typeof options === 'function') {
+        callback = options;
+        options = {};
+      }
+      
+      // 确保options是对象
+      options = options || {};
+      
+      // 不修改特定命令的选项
+      const isSpecialCommand = file.includes('node') || 
+                              file.includes('npm') || 
+                              file === process.execPath;
+      
+      if (!isSpecialCommand) {
+        // 添加Windows特定选项
+        options.windowsHide = true;
+        console.log(`[child_process hook] Added windowsHide option for execFile: ${file}`);
+      } else {
+        console.log(`[child_process hook] Not modifying options for special execFile: ${file}`);
+      }
+      
+      return originalExecFile(file, args, options, callback);
+    };
+    
+    // 覆盖fork方法 - 对于fork，我们更加小心，因为它经常用于重要的子进程通信
+    childProcess.fork = function(modulePath, args, options = {}) {
+      // 确保options是对象
+      options = options || {};
+      
+      console.log(`[child_process hook] Forking module: ${modulePath}`);
+      
+      // 对于MCP服务器，我们需要特别小心
+      const isMCPServer = modulePath.includes('mcp_server');
+      
+      // 给所有进程添加windowsHide选项，但不修改其他可能影响IPC的选项
+      options.windowsHide = true;
+      
+      // 仅对非关键模块修改这些选项
+      if (!isMCPServer) {
+        // 添加CREATE_NO_WINDOW标志，但保留现有的flags
+        if (!options.creation_flags) {
+          options.creation_flags = 0x08000000;
+        } else {
+          options.creation_flags |= 0x08000000;
+        }
+        
+        console.log(`[child_process hook] Added windowsHide options for non-critical module: ${modulePath}`);
+      } else {
+        console.log(`[child_process hook] Only adding minimal options for MCP server`);
+      }
+      
+      return originalFork(modulePath, args, options);
+    };
+    
+    console.log('已成功修改child_process模块以隐藏所有子进程窗口');
+  } catch (error) {
+    console.error('修改child_process模块失败:', error);
+  }
+}
+
 // 设置应用图标
 if (process.platform === 'win32') {
   app.setAppUserModelId(process.execPath);
@@ -349,7 +466,10 @@ function startMCPServer() {
     MCP_LOG_LEVEL: 'DEBUG', // 设置服务器日志级别为DEBUG以获取更多信息
     // 防止显示窗口的额外环境变量
     NO_WINDOW: '1',
-    RUNNING_IN_ELECTRON: '1'
+    RUNNING_IN_ELECTRON: '1',
+    // 对Python命令添加特殊环境变量
+    PYTHONUNBUFFERED: '1',
+    PYTHONDONTWRITEBYTECODE: '1'
   };
 
   try {
@@ -374,12 +494,16 @@ function startMCPServer() {
             ...env,
             // 防止显示窗口的额外环境变量
             NO_WINDOW: '1',
-            RUNNING_IN_ELECTRON: '1'
+            RUNNING_IN_ELECTRON: '1',
+            // 对Python命令添加特殊环境变量
+            PYTHONUNBUFFERED: '1',
+            PYTHONDONTWRITEBYTECODE: '1'
           },
-          stdio: ['pipe', 'pipe', 'pipe', 'ipc'],
+          stdio: ['pipe', 'pipe', 'pipe', 'ipc'], // 保持IPC通道
           // 在Windows平台下隐藏命令窗口
           windowsHide: true,
-          detached: process.platform === 'win32',
+          // 重要：对Windows，不要使用detached选项，可能会导致通信问题
+          detached: false,
           shell: false,
           // 对Windows平台，使用更底层的隐藏技术
           ...(process.platform === 'win32' ? {
@@ -453,12 +577,16 @@ function startMCPServer() {
             ...env,
             // 防止显示窗口的额外环境变量
             NO_WINDOW: '1',
-            RUNNING_IN_ELECTRON: '1'
+            RUNNING_IN_ELECTRON: '1',
+            // 对Python命令添加特殊环境变量
+            PYTHONUNBUFFERED: '1',
+            PYTHONDONTWRITEBYTECODE: '1'
           },
-          stdio: ['pipe', 'pipe', 'pipe', 'ipc'],
+          stdio: ['pipe', 'pipe', 'pipe', 'ipc'], // 保持IPC通道
           // 在Windows平台下隐藏命令窗口
           windowsHide: true,
-          detached: process.platform === 'win32',
+          // 重要：对Windows，不要使用detached选项，可能会导致通信问题
+          detached: false,
           shell: false,
           // 对Windows平台，使用更底层的隐藏技术
           ...(process.platform === 'win32' ? {

@@ -18,15 +18,6 @@
     "description": "filesystem",
     "lastUpdated": "2025-04-08T15:22:51.866Z"
   },
-  "chrome": {
-    "command": "npx",
-    "args": [
-      "-y",
-      "@automatalabs/mcp-server-playwright"
-    ],
-    "description": "浏览器",
-    "lastUpdated": "2025-04-08T12:25:23.346Z"
-  },
   "playwright": {
     "command": "npx",
     "args": [
@@ -34,6 +25,15 @@
       "@executeautomation/playwright-mcp-server"
     ],
     "description": "浏览器",
-    "lastUpdated": "2025-04-08T15:22:52.568Z"
+    "lastUpdated": "2025-04-09T11:30:37.607Z"
+  },
+  "feishu": {
+    "command": "mcp",
+    "args": [
+      "run",
+      "E:\\trae\\demo1\\main.py"
+    ],
+    "description": "飞书多维表格",
+    "lastUpdated": "2025-04-09T11:30:35.547Z"
   }
 }
